@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>DICOM viewer</title>
+    <link rel="stylesheet" href='{{ url_for('static',filename='style.css') }}'>
+    <script src="{{ url_for('static', filename='vue.js') }}"></script>
+    <script src="{{ url_for('static', filename='jquery-3.2.1.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lodash@4.13.1/lodash.min.js"></script>
+</head>
+<body>
+
+
+<div id="app">
+    <component is="slices" :planes="planes"></component>
+    {#<div id="slices">
+        <div id="axial" class="slice">
+            <canvas id="axial-canv"
+                    height=500px
+                    width=500px>
+            </canvas>
+            <input id="slider" type="range" v-model="slice_number"
+                   min="0"
+                   :max="axial_dim"
+                   @change="fetch_slice('axial')"
+                   @input="fetch_slice('axial')"/>
+        </div>
+        <div id="sagittal" class="slice">
+            <canvas id="sagittal-canv"
+                    height=500px
+                    width=500px>
+            </canvas>
+            <input id="slider" type="range" v-model="slice_number"
+                   min="0"
+                   :max="sagittal_dim"
+                   @change="fetch_slice('sagittal')"
+                   @input="fetch_slice('sagittal')"/>
+        </div>
+        <div id="coronal" class="slice">
+            <canvas id="coronal-canv"
+                    height=500px
+                    width=500px>
+            </canvas>
+            <input id="slider" type="range" v-model="slice_number"
+                   min="0"
+                   :max="coronal_dim"
+                   @change="fetch_slice('coronal')"
+                   @input="fetch_slice('coronal')"/>
+        </div>
+    </div>#}
+</div>
+
+
+<template id="slices-templ">
+    <div id="slices">
+        <component is="slice" v-for="plane in planes" :key="plane.id" :plane="plane"></component>
+    </div>
+</template>
+
+<template id="slice-templ">
+    <div :id="plane.name" class="slice">
+        <canvas :id="plane.name + '-canv'"
+                :height="canvas_size + 'px'"
+                :width="canvas_size + 'px'">
+        </canvas>
+        <input :id="plane.name + '-slider'" type="range" v-model="slice_number"
+               min="0"
+               :max="plane.dim"/>
+    </div>
+</template>
+
+<script>
+
+
+    var slices = {
+        template: '#slice-templ',
+        props: ['plane'],
+        data() {
+            return {
+                'slice_number': 0,
+                'canvas': null,
+                'ctx': null,
+                'canvas_size': 500
+            }
+        },
+        mounted() {
+            this.canvas = document.getElementById(this.plane.name + '-canv')
+            this.ctx = this.canvas.getContext("2d")
+            this.slice_number = Math.floor(this.plane.dim/2)
+        },
+        methods: {
+            fetch_slice() {
+                var self = this;
+                fetch(`api/0/stored_dicom/get_slice/${this.plane.name}/${this.slice_number}`)
+                    .then((res) => {
+                        if (!res.ok) {
+                            console.warn(res)
+                            return
+                        }
+                        return res.blob();
+                        //return res.text()
+                    })
+                    .then(function (myBlob) {
+
+                        self.ctx.beginPath();
+                        self.ctx.rect(0, 0, self.canvas_size, self.canvas_size);
+                        self.ctx.fillStyle = "blue";
+                        self.ctx.fill();
+
+                        var img = new Image();
+                        img.onload = function () {
+                            var r = self.plane.width/self.plane.height
+                            self.ctx.drawImage(img, self.canvas_size*(1-r)/2, 0, self.canvas_size*r, self.canvas_size);
+                        }
+
+                        var objectURL = URL.createObjectURL(myBlob);
+                        img.src = objectURL;
+
+                    })
+                    .catch((err) => {
+                        console.warn(err)
+                    })
+            }
+        },
+        watch: {
+            'slice_number': function () {
+                this.fetch_slice()
+            }
+        }
+    }
+
+    var slices_container = {
+        template: '#slices-templ',
+        props: ['planes'],
+        components: {
+            'slice': slices
+        }
+    }
+
+    var app = new Vue({
+        el: '#app',
+        delimiters: ['${', '}'],
+        data: {
+            planes: [
+                {
+                    id: 0,
+                    name: 'axial',
+                    dim: {{ session['dimension'][0] - 1}},
+                    width: {{ session['dimension'][1]}},
+                    height: {{ session['dimension'][2]}}
+                },
+                {
+                    id: 1,
+                    name: 'sagittal',
+                    dim: {{ session['dimension'][2] - 1}},
+                    width: {{ session['dimension'][2]}},
+                    height: {{ session['dimension'][0]}}
+
+                },
+                {
+                    id: 2,
+                    name: 'coronal',
+                    dim: {{ session['dimension'][1] - 1}},
+                    width: {{ session['dimension'][1]}},
+                    height: {{ session['dimension'][0]}}
+                }
+            ]
+        },
+        components: {
+            'slices': slices_container
+        }
+    })
+
+
+</script>
+
+</body>
+</html>

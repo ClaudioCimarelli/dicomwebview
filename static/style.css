@@ -1,0 +1,15 @@
+canvas{
+    border: 3px solid #333;
+}
+
+#slices {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.slice{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
