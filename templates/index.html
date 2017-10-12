@@ -39,9 +39,16 @@
                     :height="scaled_height + 'px'"
                     :width="scaled_width + 'px'">
             </canvas>
-            <component is="segmentation" v-if="plane.name=='axial'" v-for="z in _.range(5)" :key="z" :plane="plane"
+            <canvas id="display-canv"
+                    style="position: absolute; left: 0; top: 0; z-index: 0;"
+                    :height="scaled_height + 'px'"
+                    :width="scaled_width + 'px'">
+            </canvas>
+            <component is="segmentation" v-if="plane.name=='axial'" v-for="z in _.range(5)" :key="z"
+                       :plane-name="plane.name"
                        :scaled-height="scaled_height" :scaled-width="scaled_width"
-                       :zoom="zoom" :z="z+1">
+                       :zoom="zoom" :z="z+1"
+                       :display-canvas="display_canv">
             </component>
         </div>
         <span>slice number: ${slice_number}</span>
@@ -57,7 +64,7 @@
 </template>
 
 <template id="segmentation-template">
-    <canvas v-show="z==zoomLevel" :id="plane.name + '-segmentation'+z"
+    <canvas v-show="display" :id="planeName + '-segmentation'+z"
             style="position: absolute; left: 0; top: 0;"
             :z-index="z"
             @mousemove="get_coordinates"
@@ -68,11 +75,12 @@
 
 <script>
 
+    var scaling_bus = new Vue()
 
     var segmentation_component = {
         template: '#segmentation-template',
         delimiters: ['${', '}'],
-        props: ['plane', 'imageData', 'scaledWidth', 'scaledHeight', 'zoom', 'z'],
+        props: ['displayCanvas', 'planeName', 'scaledWidth', 'scaledHeight', 'zoom', 'z'],
         data() {
             return {
                 'segm_canv': null,
@@ -83,25 +91,43 @@
                 },
                 'drawing': false,
                 'color': "yellow",
-                'draw_enabled': false
+                'draw_enabled': true
             }
         },
-        computed:{
-            zoomLevel(){
-                return this.zoom*2-1
+        computed: {
+            zoomLevel() {
+                return this.zoom * 2 - 1
+            },
+            display() {
+                return this.zoomLevel == this.z
             }
         },
         mounted() {
-            this.segm_canv = document.getElementById(this.plane.name + '-segmentation'+ this.z)
-            this.segm_canv.width = this.scaledWidth*(this.z+1)/2
-            this.segm_canv.height = this.scaledHeight*(this.z+1)/2
-            this.segm_canv.style.imageRendering = 'pixelated'
+            this.segm_canv = document.getElementById(this.planeName + '-segmentation' + this.z)
+            this.segm_canv.width = this.scaledWidth * (this.z + 1) / 2
+            this.segm_canv.height = this.scaledHeight * (this.z + 1) / 2
 
             this.segm_ctx = this.segm_canv.getContext("2d")
             this.segm_ctx.beginPath()
             this.segm_ctx.strokeStyle = this.color
+
+            for (x in _.range(5)) {
+                if ((parseInt(x) + 1) != this.z) {
+                    var self = this
+                    scaling_bus.$on('scaling' + (parseInt(x) + 1), function (layerZ, image) {
+                        if (self.display) {
+                            let ctx = self.displayCanvas.getContext("2d")
+                            ctx.imageSmoothingEnabled = false
+                            ctx.mozImageSmoothingEnabled = false
+                            ctx.webkitImageSmoothingEnabled = false
+                            ctx.msImageSmoothingEnabled = false
+                            ctx.drawImage(image, 0, 0, self.segm_canv.width, self.segm_canv.height)
+                        }
+                    })
+                }
+            }
         },
-        updated(){
+        updated() {
         },
         methods: {
             get_coordinates(event) {
@@ -120,25 +146,11 @@
                     this.segm_ctx.stroke()
                 }
             },
-            scaledWidth() {
-                {#let cv = cloneCanvas(this.segm_canv)
-
-                this.segm_canv.width = this.scaledWidth
-                this.segm_canv.height = this.scaledHeight
-                this.segm_canv.style.imageRendering = 'pixelated'
-                cv.style.imageRendering = 'pixelated'
-
-                this.segm_ctx = this.segm_canv.getContext("2d")
-
-                this.segm_ctx.imageSmoothingEnabled = false
-                this.segm_ctx.mozImageSmoothingEnabled = false
-                this.segm_ctx.webkitImageSmoothingEnabled = false
-                this.segm_ctx.msImageSmoothingEnabled = false
-                this.segm_ctx.drawImage(cv, 0, 0, this.scaledWidth, this.scaledHeight)
-
-                this.segm_ctx.beginPath()
-                this.segm_ctx.strokeStyle = this.color#}
-
+            zoomLevel() {
+                if (!this.display) {
+                    let image = cloneCanvas(this.segm_canv)
+                    scaling_bus.$emit('scaling' + this.z, this.z, image)
+                }
             },
             drawing() {
                 if (this.drawing) {
@@ -178,6 +190,7 @@
                 'slice_number': 0,
                 'image_url': null,
                 'canvas': null,
+                'display_canv': null,
                 'ctx': null,
                 'scaled_height': this.plane.y
             }
@@ -198,6 +211,10 @@
         mounted() {
             this.canvas = document.getElementById(this.plane.name + '-image')
             this.ctx = this.canvas.getContext("2d")
+
+            this.display_canv = document.getElementById("display-canv")
+            this.display_canv.style.imageRendering = 'pixelated'
+
             this.slice_number = Math.floor(this.plane.z / 2)
         },
         methods: {
