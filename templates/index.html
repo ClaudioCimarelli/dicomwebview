@@ -6,6 +6,7 @@
     <link rel="stylesheet" href='{{ url_for('static',filename='style.css') }}'>
     <script src="{{ url_for('static', filename='vue.js') }}"></script>
     <script src="{{ url_for('static', filename='jquery-3.2.1.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lodash@4.13.1/lodash.min.js"></script>
 </head>
 <body>
 
@@ -19,7 +20,7 @@
     <div>
         <div>
             <input id="canvas_box_size-slider'" type="range" v-model="canvas_box_size"
-                   min="500"
+                   min="600"
                    max="1200"/>
         </div>
         <div id="slices">
@@ -36,14 +37,12 @@
             <canvas :id="plane.name + '-image'"
                     style="position: absolute; left: 0; top: 0; z-index: 0;"
                     :height="scaled_height + 'px'"
-                    :width="scaled_width + 'px'"
-                    @mousemove="get_coordinates">
+                    :width="scaled_width + 'px'">
             </canvas>
-            <canvas v-if="draw_enabled" :id="plane.name + '-segmentation'"
-                    style="position: absolute; left: 0; top: 0; z-index: 1;"
-                    @mousemove="get_coordinates"
-                    @mousedown="drawing = true"
-                    @mouseup="drawing = false"></canvas>
+            <component is="segmentation" v-if="plane.name=='axial'" v-for="z in _.range(5)" :key="z" :plane="plane"
+                       :scaled-height="scaled_height" :scaled-width="scaled_width"
+                       :zoom="zoom" :z="z+1">
+            </component>
         </div>
         <span>slice number: ${slice_number}</span>
         <input :id="plane.name + '-slider'" type="range" v-model="slice_number"
@@ -58,8 +57,9 @@
 </template>
 
 <template id="segmentation-template">
-    <canvas v-if="draw_enabled" :id="plane.name + '-segmentation'"
-            style="position: absolute; left: 0; top: 0; z-index: 1;"
+    <canvas v-show="z==zoomLevel" :id="plane.name + '-segmentation'+z"
+            style="position: absolute; left: 0; top: 0;"
+            :z-index="z"
             @mousemove="get_coordinates"
             @mousedown="drawing = true"
             @mouseup="drawing = false">
@@ -67,22 +67,99 @@
 </template>
 
 <script>
-    var segmentation_canvas = {
-        template: '#slice-templ',
-        delimiters: ['${', '}'],
-        props: ['plane', 'canvas_box_size'],
 
+
+    var segmentation_component = {
+        template: '#segmentation-template',
+        delimiters: ['${', '}'],
+        props: ['plane', 'imageData', 'scaledWidth', 'scaledHeight', 'zoom', 'z'],
+        data() {
+            return {
+                'segm_canv': null,
+                'segm_ctx': null,
+                'cursor': {
+                    x: 0,
+                    y: 0
+                },
+                'drawing': false,
+                'color': "yellow",
+                'draw_enabled': false
+            }
+        },
+        computed:{
+            zoomLevel(){
+                return this.zoom*2-1
+            }
+        },
+        mounted() {
+            this.segm_canv = document.getElementById(this.plane.name + '-segmentation'+ this.z)
+            this.segm_canv.width = this.scaledWidth*(this.z+1)/2
+            this.segm_canv.height = this.scaledHeight*(this.z+1)/2
+            this.segm_canv.style.imageRendering = 'pixelated'
+
+            this.segm_ctx = this.segm_canv.getContext("2d")
+            this.segm_ctx.beginPath()
+            this.segm_ctx.strokeStyle = this.color
+        },
+        updated(){
+        },
+        methods: {
+            get_coordinates(event) {
+                {#let rect = this.canvas.getBoundingClientRect();
+                console.log("x: %d, y: %d", event.clientX- rect.left, event.clientY- rect.top)#}
+                this.cursor = {
+                    x: event.layerX,
+                    y: event.layerY
+                }
+            }
+        },
+        watch: {
+            cursor() {
+                if (this.drawing) {
+                    this.segm_ctx.lineTo(this.cursor.x, this.cursor.y)
+                    this.segm_ctx.stroke()
+                }
+            },
+            scaledWidth() {
+                {#let cv = cloneCanvas(this.segm_canv)
+
+                this.segm_canv.width = this.scaledWidth
+                this.segm_canv.height = this.scaledHeight
+                this.segm_canv.style.imageRendering = 'pixelated'
+                cv.style.imageRendering = 'pixelated'
+
+                this.segm_ctx = this.segm_canv.getContext("2d")
+
+                this.segm_ctx.imageSmoothingEnabled = false
+                this.segm_ctx.mozImageSmoothingEnabled = false
+                this.segm_ctx.webkitImageSmoothingEnabled = false
+                this.segm_ctx.msImageSmoothingEnabled = false
+                this.segm_ctx.drawImage(cv, 0, 0, this.scaledWidth, this.scaledHeight)
+
+                this.segm_ctx.beginPath()
+                this.segm_ctx.strokeStyle = this.color#}
+
+            },
+            drawing() {
+                if (this.drawing) {
+                    this.segm_ctx.moveTo(this.cursor.x, this.cursor.y)
+                }
+            },
+            color() {
+                this.segm_ctx.strokeStyle = this.color
+            }
+        }
     }
 
     function cloneCanvas(oldCanvas) {
 
         //create a new canvas
-        let newCanvas = document.createElement('canvas');
-        let context = newCanvas.getContext('2d');
+        let newCanvas = document.createElement('canvas')
+        let context = newCanvas.getContext('2d')
 
         //set dimensions
-        newCanvas.width = oldCanvas.width;
-        newCanvas.height = oldCanvas.height;
+        newCanvas.width = oldCanvas.width
+        newCanvas.height = oldCanvas.height
 
         //apply the old canvas to the new one
         context.drawImage(oldCanvas, 0, 0);
@@ -102,17 +179,11 @@
                 'image_url': null,
                 'canvas': null,
                 'ctx': null,
-                'segm_canv': null,
-                'segm_ctx': null,
-                'scaled_height': this.plane.y,
-                'cursor': {
-                    x: 0,
-                    y: 0
-                },
-                'drawing': false,
-                'color': "yellow",
-                'draw_enabled': true
+                'scaled_height': this.plane.y
             }
+        },
+        components: {
+            'segmentation': segmentation_component
         },
         computed: {
             zoom() {
@@ -127,29 +198,11 @@
         mounted() {
             this.canvas = document.getElementById(this.plane.name + '-image')
             this.ctx = this.canvas.getContext("2d")
-
-            this.segm_canv = document.getElementById(this.plane.name + '-segmentation')
-            this.segm_ctx = this.segm_canv.getContext("2d")
-            this.segm_canv.style.imageRendering = 'pixelated'
-            this.segm_canv.width = this.scaled_width
-            this.segm_canv.height = this.scaled_height
-
-            this.segm_ctx.beginPath()
-            this.segm_ctx.strokeStyle = this.color
-
             this.slice_number = Math.floor(this.plane.z / 2)
         },
         methods: {
-            get_coordinates(event) {
-                {#let rect = this.canvas.getBoundingClientRect();
-                console.log("x: %d, y: %d", event.clientX- rect.left, event.clientY- rect.top)#}
-                this.cursor = {
-                    x: event.layerX,
-                    y: event.layerY
-                }
-            },
             fetch_slice() {
-                var self = this;
+                var self = this
                 fetch(`api/0/stored_dicom/get_slice/${this.plane.name}/${this.slice_number}`)
                     .then((res) => {
                         if (!res.ok) {
@@ -161,10 +214,10 @@
                     .then(function (myBlob) {
                         let img = new Image();
                         img.onload = function () {
-                            self.ctx.drawImage(img, 0, 0, self.scaled_width, self.scaled_height);
+                            self.ctx.drawImage(img, 0, 0, self.scaled_width, self.scaled_height)
                         }
-                        let objectURL = URL.createObjectURL(myBlob);
-                        img.src = objectURL;
+                        let objectURL = URL.createObjectURL(myBlob)
+                        img.src = objectURL
                         self.image_url = objectURL
                     })
                     .catch((err) => {
@@ -176,12 +229,6 @@
             slice_number() {
                 this.fetch_slice()
             },
-            cursor() {
-                if (this.drawing) {
-                    this.segm_ctx.lineTo(this.cursor.x, this.cursor.y)
-                    this.segm_ctx.stroke()
-                }
-            },
             scaled_width() {
                 let img = new Image();
                 let self = this
@@ -189,33 +236,6 @@
                     self.ctx.drawImage(img, 0, 0, self.scaled_width, self.scaled_height)
                 }
                 img.src = this.image_url
-
-                let cv = cloneCanvas(this.segm_canv)
-
-                this.segm_canv.width = this.scaled_width
-                this.segm_canv.height = this.scaled_height
-                this.segm_canv.style.imageRendering = 'pixelated'
-                cv.style.imageRendering = 'pixelated'
-
-                this.segm_ctx = this.segm_canv.getContext("2d")
-
-                this.segm_ctx.imageSmoothingEnabled = false
-                this.segm_ctx.mozImageSmoothingEnabled = false
-                this.segm_ctx.webkitImageSmoothingEnabled = false
-                this.segm_ctx.msImageSmoothingEnabled = false
-                this.segm_ctx.drawImage(cv, 0, 0, this.scaled_width, this.scaled_height)
-
-                this.segm_ctx.beginPath()
-                this.segm_ctx.strokeStyle = this.color
-
-            },
-            drawing() {
-                if (this.drawing) {
-                    this.segm_ctx.moveTo(this.cursor.x, this.cursor.y)
-                }
-            },
-            color() {
-                this.segm_ctx.strokeStyle = this.color
             }
         }
     }
@@ -229,7 +249,7 @@
         },
         data() {
             return {
-                'canvas_box_size': 600
+                'canvas_box_size': 700
             }
         }
 
