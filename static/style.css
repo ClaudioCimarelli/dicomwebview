@@ -1,15 +1,18 @@
-canvas{
-    border: 3px solid #333;
-}
-
 #slices {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     flex-wrap: wrap;
 }
 
-.slice{
+.slice-box{
     display: flex;
     flex-direction: column;
     align-items: center;
+}
+
+.canvas-box{
+    float: left;
+    overflow:scroll;
+    background-color: gray;
+    position: relative;
 }

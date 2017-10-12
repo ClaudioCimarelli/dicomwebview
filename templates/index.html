@@ -6,89 +6,148 @@
     <link rel="stylesheet" href='{{ url_for('static',filename='style.css') }}'>
     <script src="{{ url_for('static', filename='vue.js') }}"></script>
     <script src="{{ url_for('static', filename='jquery-3.2.1.js') }}"></script>
-    <script src="https://cdn.jsdelivr.net/npm/lodash@4.13.1/lodash.min.js"></script>
 </head>
 <body>
 
 
 <div id="app">
     <component is="slices" :planes="planes"></component>
-    {#<div id="slices">
-        <div id="axial" class="slice">
-            <canvas id="axial-canv"
-                    height=500px
-                    width=500px>
-            </canvas>
-            <input id="slider" type="range" v-model="slice_number"
-                   min="0"
-                   :max="axial_dim"
-                   @change="fetch_slice('axial')"
-                   @input="fetch_slice('axial')"/>
-        </div>
-        <div id="sagittal" class="slice">
-            <canvas id="sagittal-canv"
-                    height=500px
-                    width=500px>
-            </canvas>
-            <input id="slider" type="range" v-model="slice_number"
-                   min="0"
-                   :max="sagittal_dim"
-                   @change="fetch_slice('sagittal')"
-                   @input="fetch_slice('sagittal')"/>
-        </div>
-        <div id="coronal" class="slice">
-            <canvas id="coronal-canv"
-                    height=500px
-                    width=500px>
-            </canvas>
-            <input id="slider" type="range" v-model="slice_number"
-                   min="0"
-                   :max="coronal_dim"
-                   @change="fetch_slice('coronal')"
-                   @input="fetch_slice('coronal')"/>
-        </div>
-    </div>#}
 </div>
 
 
 <template id="slices-templ">
-    <div id="slices">
-        <component is="slice" v-for="plane in planes" :key="plane.id" :plane="plane"></component>
+    <div>
+        <div>
+            <input id="canvas_box_size-slider'" type="range" v-model="canvas_box_size"
+                   min="500"
+                   max="1200"/>
+        </div>
+        <div id="slices">
+            <component is="slice" v-for="plane in planes" :key="plane.id" :plane="plane"
+                       :canvas_box_size="canvas_box_size">
+            </component>
+        </div>
     </div>
 </template>
 
 <template id="slice-templ">
-    <div :id="plane.name" class="slice">
-        <canvas :id="plane.name + '-canv'"
-                :height="canvas_size + 'px'"
-                :width="canvas_size + 'px'">
-        </canvas>
+    <div :id="plane.name" class="slice-box">
+        <div class="canvas-box" :style="{ width: canvas_box_size + 'px', height: canvas_box_size + 'px'}">
+            <canvas :id="plane.name + '-image'"
+                    style="position: absolute; left: 0; top: 0; z-index: 0;"
+                    :height="scaled_height + 'px'"
+                    :width="scaled_width + 'px'"
+                    @mousemove="get_coordinates">
+            </canvas>
+            <canvas v-if="draw_enabled" :id="plane.name + '-segmentation'"
+                    style="position: absolute; left: 0; top: 0; z-index: 1;"
+                    @mousemove="get_coordinates"
+                    @mousedown="drawing = true"
+                    @mouseup="drawing = false"></canvas>
+        </div>
+        <span>slice number: ${slice_number}</span>
         <input :id="plane.name + '-slider'" type="range" v-model="slice_number"
                min="0"
-               :max="plane.dim"/>
+               :max="plane.z"/>
+        <span>zoom: ${zoom}</span>
+        <input id="canvas_size-slider'" type="range" v-model="scaled_height"
+               :min="plane.y"
+               :max="plane.y*3"
+               :step="plane.y/2"/>
     </div>
 </template>
 
+<template id="segmentation-template">
+    <canvas v-if="draw_enabled" :id="plane.name + '-segmentation'"
+            style="position: absolute; left: 0; top: 0; z-index: 1;"
+            @mousemove="get_coordinates"
+            @mousedown="drawing = true"
+            @mouseup="drawing = false">
+    </canvas>
+</template>
+
 <script>
+    var segmentation_canvas = {
+        template: '#slice-templ',
+        delimiters: ['${', '}'],
+        props: ['plane', 'canvas_box_size'],
+
+    }
+
+    function cloneCanvas(oldCanvas) {
+
+        //create a new canvas
+        let newCanvas = document.createElement('canvas');
+        let context = newCanvas.getContext('2d');
+
+        //set dimensions
+        newCanvas.width = oldCanvas.width;
+        newCanvas.height = oldCanvas.height;
+
+        //apply the old canvas to the new one
+        context.drawImage(oldCanvas, 0, 0);
+
+        //return the new canvas
+        return newCanvas;
+    }
 
 
     var slices = {
         template: '#slice-templ',
-        props: ['plane'],
+        delimiters: ['${', '}'],
+        props: ['plane', 'canvas_box_size'],
         data() {
             return {
                 'slice_number': 0,
+                'image_url': null,
                 'canvas': null,
                 'ctx': null,
-                'canvas_size': 500
+                'segm_canv': null,
+                'segm_ctx': null,
+                'scaled_height': this.plane.y,
+                'cursor': {
+                    x: 0,
+                    y: 0
+                },
+                'drawing': false,
+                'color': "yellow",
+                'draw_enabled': true
+            }
+        },
+        computed: {
+            zoom() {
+                return this.scaled_height / this.plane.y
+            },
+            scaled_width() {
+                let real_width = Math.floor(this.plane.x * this.plane.ratio)
+                let scaled_width = Math.floor(real_width * this.scaled_height / this.plane.y)
+                return scaled_width
             }
         },
         mounted() {
-            this.canvas = document.getElementById(this.plane.name + '-canv')
+            this.canvas = document.getElementById(this.plane.name + '-image')
             this.ctx = this.canvas.getContext("2d")
-            this.slice_number = Math.floor(this.plane.dim/2)
+
+            this.segm_canv = document.getElementById(this.plane.name + '-segmentation')
+            this.segm_ctx = this.segm_canv.getContext("2d")
+            this.segm_canv.style.imageRendering = 'pixelated'
+            this.segm_canv.width = this.scaled_width
+            this.segm_canv.height = this.scaled_height
+
+            this.segm_ctx.beginPath()
+            this.segm_ctx.strokeStyle = this.color
+
+            this.slice_number = Math.floor(this.plane.z / 2)
         },
         methods: {
+            get_coordinates(event) {
+                {#let rect = this.canvas.getBoundingClientRect();
+                console.log("x: %d, y: %d", event.clientX- rect.left, event.clientY- rect.top)#}
+                this.cursor = {
+                    x: event.layerX,
+                    y: event.layerY
+                }
+            },
             fetch_slice() {
                 var self = this;
                 fetch(`api/0/stored_dicom/get_slice/${this.plane.name}/${this.slice_number}`)
@@ -98,24 +157,15 @@
                             return
                         }
                         return res.blob();
-                        //return res.text()
                     })
                     .then(function (myBlob) {
-
-                        self.ctx.beginPath();
-                        self.ctx.rect(0, 0, self.canvas_size, self.canvas_size);
-                        self.ctx.fillStyle = "blue";
-                        self.ctx.fill();
-
-                        var img = new Image();
+                        let img = new Image();
                         img.onload = function () {
-                            var r = self.plane.width/self.plane.height
-                            self.ctx.drawImage(img, self.canvas_size*(1-r)/2, 0, self.canvas_size*r, self.canvas_size);
+                            self.ctx.drawImage(img, 0, 0, self.scaled_width, self.scaled_height);
                         }
-
-                        var objectURL = URL.createObjectURL(myBlob);
+                        let objectURL = URL.createObjectURL(myBlob);
                         img.src = objectURL;
-
+                        self.image_url = objectURL
                     })
                     .catch((err) => {
                         console.warn(err)
@@ -123,18 +173,66 @@
             }
         },
         watch: {
-            'slice_number': function () {
+            slice_number() {
                 this.fetch_slice()
+            },
+            cursor() {
+                if (this.drawing) {
+                    this.segm_ctx.lineTo(this.cursor.x, this.cursor.y)
+                    this.segm_ctx.stroke()
+                }
+            },
+            scaled_width() {
+                let img = new Image();
+                let self = this
+                img.onload = function () {
+                    self.ctx.drawImage(img, 0, 0, self.scaled_width, self.scaled_height)
+                }
+                img.src = this.image_url
+
+                let cv = cloneCanvas(this.segm_canv)
+
+                this.segm_canv.width = this.scaled_width
+                this.segm_canv.height = this.scaled_height
+                this.segm_canv.style.imageRendering = 'pixelated'
+                cv.style.imageRendering = 'pixelated'
+
+                this.segm_ctx = this.segm_canv.getContext("2d")
+
+                this.segm_ctx.imageSmoothingEnabled = false
+                this.segm_ctx.mozImageSmoothingEnabled = false
+                this.segm_ctx.webkitImageSmoothingEnabled = false
+                this.segm_ctx.msImageSmoothingEnabled = false
+                this.segm_ctx.drawImage(cv, 0, 0, this.scaled_width, this.scaled_height)
+
+                this.segm_ctx.beginPath()
+                this.segm_ctx.strokeStyle = this.color
+
+            },
+            drawing() {
+                if (this.drawing) {
+                    this.segm_ctx.moveTo(this.cursor.x, this.cursor.y)
+                }
+            },
+            color() {
+                this.segm_ctx.strokeStyle = this.color
             }
         }
     }
 
     var slices_container = {
         template: '#slices-templ',
+        delimiters: ['${', '}'],
         props: ['planes'],
         components: {
             'slice': slices
+        },
+        data() {
+            return {
+                'canvas_box_size': 600
+            }
         }
+
     }
 
     var app = new Vue({
@@ -145,24 +243,27 @@
                 {
                     id: 0,
                     name: 'axial',
-                    dim: {{ session['dimension'][0] - 1}},
-                    width: {{ session['dimension'][1]}},
-                    height: {{ session['dimension'][2]}}
-                },
-                {
-                    id: 1,
-                    name: 'sagittal',
-                    dim: {{ session['dimension'][2] - 1}},
-                    width: {{ session['dimension'][2]}},
-                    height: {{ session['dimension'][0]}}
-
+                    z: {{ session['dimension'][0] - 1}},
+                    x: {{ session['dimension'][1]}},
+                    y: {{ session['dimension'][2]}},
+                    ratio: {{ session['ratios'][0] }}
                 },
                 {
                     id: 2,
+                    name: 'sagittal',
+                    z: {{ session['dimension'][2] - 1}},
+                    x: {{ session['dimension'][2]}},
+                    y: {{ session['dimension'][0]}},
+                    ratio: {{ session['ratios'][2] }}
+
+                },
+                {
+                    id: 1,
                     name: 'coronal',
-                    dim: {{ session['dimension'][1] - 1}},
-                    width: {{ session['dimension'][1]}},
-                    height: {{ session['dimension'][0]}}
+                    z: {{ session['dimension'][1] - 1}},
+                    x: {{ session['dimension'][1]}},
+                    y: {{ session['dimension'][0]}},
+                    ratio: {{ session['ratios'][1] }}
                 }
             ]
         },
