@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html xmlns="http://www.w3.org/1999/html">
 <head>
     <meta charset="utf-8">
     <title>DICOM viewer</title>
@@ -22,10 +22,11 @@
             <input id="canvas_box_size-slider'" type="range" v-model="canvas_box_size"
                    min="600"
                    max="1200"/>
+            <component is="colorSelector" @colorchange="changeColor"></component>
         </div>
         <div id="slices">
             <component is="slice" v-for="plane in planes" :key="plane.id" :plane="plane"
-                       :canvas_box_size="canvas_box_size">
+                       :canvas_box_size="canvas_box_size" :color="color">
             </component>
         </div>
     </div>
@@ -47,8 +48,9 @@
             <component is="segmentation" v-if="plane.name=='axial'" v-for="z in _.range(5)" :key="z"
                        :plane-name="plane.name"
                        :scaled-height="scaled_height" :scaled-width="scaled_width"
-                       :zoom="zoom" :z="z+1"
-                       :display-canvas="display_canv">
+                       :zoom="zoom" :z="parseInt(z)+1"
+                       :display-canvas="display_canv"
+                       :color="color">
             </component>
         </div>
         <span>slice number: ${slice_number}</span>
@@ -68,19 +70,101 @@
             style="position: absolute; left: 0; top: 0;"
             :z-index="z"
             @mousemove="get_coordinates"
-            @mousedown="drawing = true"
-            @mouseup="drawing = false">
+            @mousedown="startDraw"
+            @mouseup="endDraw">
     </canvas>
+</template>
+
+<template id="color-selector-template">
+    <div>
+        <input
+                @keyup.enter="addNewColor"
+                placeholder="Add a label"
+        >
+        <input type="radio" v-for="(color, index) in colors" :key="index" :id="color.colorName+'-radio'"
+               :value="color.colorName" v-model="pickedColor">
+        <component is="colorElem" v-for="(color, index) in colors" :key="index"
+                   :color="color"
+                   @remove="removeColor(index)">
+        </component>
+    </div>
+</template>
+
+<template id="color-template">
+    <div>
+        <canvas :id="color.colorName+'-canv'" width="10px" height="10px"></canvas>
+        <span>${color.label}</span>
+        <button @click="$emit('remove')">X</button>
+    </div>
 </template>
 
 <script>
 
-    var scaling_bus = new Vue()
+
+    var color_component = {
+        template: '#color-template',
+        delimiters: ['${', '}'],
+        props: ['color'],
+        mounted() {
+            var c = document.getElementById(this.color.colorName + "-canv");
+            var ctx = c.getContext("2d");
+            ctx.fillStyle = this.color.colorName;
+            ctx.fillRect(0, 0, 10, 10);
+        }
+    }
+
+    var colorSelector = {
+        name: 'colorSelector',
+        template: '#color-selector-template',
+        delimiters: ['${', '}'],
+        data() {
+            return {
+                colors: [
+                    {
+                        'colorName': "yellow",
+                        'label': "spleen",
+                        'colorRGB': null
+                    },
+                    {
+                        'colorName': "red",
+                        'label': "heart",
+                        'colorRGB': null
+                    },
+                    {
+                        'colorName': "green",
+                        'label': "liver",
+                        'colorRGB': null
+                    }
+                ],
+                'pickedColor': ""
+            }
+        },
+        components: {
+            'colorElem': color_component
+        },
+        methods: {
+            addNewColor() {
+            },
+            removeColor(index){
+                if(this.colors[index].colorName==this.pickedColor){
+                    this.pickedColor=''
+                }
+                this.colors.splice(index, 1)
+            }
+        },
+        watch:{
+            pickedColor(){
+                this.$emit('colorchange', this.pickedColor)
+            }
+        }
+    }
+
+    var segmentationBus = new Vue()
 
     var segmentation_component = {
         template: '#segmentation-template',
         delimiters: ['${', '}'],
-        props: ['displayCanvas', 'planeName', 'scaledWidth', 'scaledHeight', 'zoom', 'z'],
+        props: ['displayCanvas', 'planeName', 'scaledWidth', 'scaledHeight', 'zoom', 'z', 'color'],
         data() {
             return {
                 'segm_canv': null,
@@ -90,7 +174,6 @@
                     y: 0
                 },
                 'drawing': false,
-                'color': "yellow",
                 'draw_enabled': true
             }
         },
@@ -100,6 +183,9 @@
             },
             display() {
                 return this.zoomLevel == this.z
+            },
+            colorPicked(){
+                return this.color!='' && this.color!= undefined
             }
         },
         mounted() {
@@ -108,13 +194,11 @@
             this.segm_canv.height = this.scaledHeight * (this.z + 1) / 2
 
             this.segm_ctx = this.segm_canv.getContext("2d")
-            this.segm_ctx.beginPath()
-            this.segm_ctx.strokeStyle = this.color
 
             for (x in _.range(5)) {
                 if ((parseInt(x) + 1) != this.z) {
                     var self = this
-                    scaling_bus.$on('scaling' + (parseInt(x) + 1), function (layerZ, image) {
+                    segmentationBus.$on('scaling' + (parseInt(x) + 1), function (layerZ, image) {
                         if (self.display) {
                             let ctx = self.displayCanvas.getContext("2d")
                             ctx.imageSmoothingEnabled = false
@@ -127,8 +211,6 @@
                 }
             }
         },
-        updated() {
-        },
         methods: {
             get_coordinates(event) {
                 {#let rect = this.canvas.getBoundingClientRect();
@@ -137,11 +219,24 @@
                     x: event.layerX,
                     y: event.layerY
                 }
+            },
+            startDraw(){
+                if (this.colorPicked) {
+                    this.segm_ctx.beginPath()
+                    this.segm_ctx.moveTo(this.cursor.x, this.cursor.y)
+                    this.drawing = true
+                }
+            },
+            endDraw(){
+                if(this.colorPicked){
+                    this.segm_ctx.fill()
+                    this.drawing = false
+                }
             }
         },
         watch: {
             cursor() {
-                if (this.drawing) {
+                if (this.drawing && this.colorPicked) {
                     this.segm_ctx.lineTo(this.cursor.x, this.cursor.y)
                     this.segm_ctx.stroke()
                 }
@@ -149,16 +244,12 @@
             zoomLevel() {
                 if (!this.display) {
                     let image = cloneCanvas(this.segm_canv)
-                    scaling_bus.$emit('scaling' + this.z, this.z, image)
-                }
-            },
-            drawing() {
-                if (this.drawing) {
-                    this.segm_ctx.moveTo(this.cursor.x, this.cursor.y)
+                    segmentationBus.$emit('scaling' + this.z, this.z, image)
                 }
             },
             color() {
                 this.segm_ctx.strokeStyle = this.color
+                this.segm_ctx.fillStyle = this.color;
             }
         }
     }
@@ -181,10 +272,10 @@
     }
 
 
-    var slices = {
+    var slice_component = {
         template: '#slice-templ',
         delimiters: ['${', '}'],
-        props: ['plane', 'canvas_box_size'],
+        props: ['plane', 'canvas_box_size', 'color'],
         data() {
             return {
                 'slice_number': 0,
@@ -257,16 +348,23 @@
         }
     }
 
-    var slices_container = {
+    var slices_component = {
         template: '#slices-templ',
         delimiters: ['${', '}'],
         props: ['planes'],
         components: {
-            'slice': slices
+            'slice': slice_component,
+            'colorSelector': colorSelector
         },
         data() {
             return {
-                'canvas_box_size': 700
+                'canvas_box_size': 700,
+                'color': ''
+            }
+        },
+        methods:{
+            changeColor(colorName){
+                this.color = colorName
             }
         }
 
@@ -305,7 +403,7 @@
             ]
         },
         components: {
-            'slices': slices_container
+            'slices': slices_component
         }
     })
 
