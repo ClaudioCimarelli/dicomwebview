@@ -34,6 +34,7 @@
 
 <template id="slice-templ">
     <div :id="plane.name" class="slice-box">
+
         <div class="canvas-box" :style="{ width: canvas_box_size + 'px', height: canvas_box_size + 'px'}">
             <canvas :id="plane.name + '-image'"
                     style="position: absolute; left: 0; top: 0; z-index: 0;"
@@ -43,14 +44,15 @@
             <canvas id="display-canv"
                     style="position: absolute; left: 0; top: 0; z-index: 0;"
                     :height="scaled_height + 'px'"
-                    :width="scaled_width + 'px'">
+                    :width="scaled_width + 'px'"
+                    v-show="draw_enabled">
             </canvas>
             <component is="segmentation" v-if="plane.name=='axial'" v-for="z in _.range(5)" :key="z"
                        :plane-name="plane.name"
                        :scaled-height="scaled_height" :scaled-width="scaled_width"
                        :zoom="zoom" :z="parseInt(z)+1"
                        :display-canvas="display_canv"
-                       :color="color">
+                       :color="color" :draw-enabled="draw_enabled">
             </component>
         </div>
         <span>slice number: ${slice_number}</span>
@@ -62,11 +64,14 @@
                :min="plane.y"
                :max="plane.y*3"
                :step="plane.y/2"/>
+        <input type="checkbox" id="enableDrawing-checkbox"
+               v-if="plane.name=='axial'" v-model="draw_enabled">
+        <label for="enableDrawing-checkbox">drawing is enabled: ${draw_enabled}</label>
     </div>
 </template>
 
 <template id="segmentation-template">
-    <canvas v-show="display" :id="planeName + '-segmentation'+z"
+    <canvas v-show="display && drawEnabled" :id="planeName + '-segmentation'+z"
             style="position: absolute; left: 0; top: 0;"
             :z-index="z"
             @mousemove="get_coordinates"
@@ -169,7 +174,7 @@
     var segmentation_component = {
         template: '#segmentation-template',
         delimiters: ['${', '}'],
-        props: ['displayCanvas', 'planeName', 'scaledWidth', 'scaledHeight', 'zoom', 'z', 'color'],
+        props: ['displayCanvas', 'drawEnabled', 'planeName', 'scaledWidth', 'scaledHeight', 'zoom', 'z', 'color'],
         data() {
             return {
                 'segm_canv': null,
@@ -178,8 +183,7 @@
                     x: 0,
                     y: 0
                 },
-                'drawing': false,
-                'draw_enabled': true
+                'drawing': false
             }
         },
         computed: {
@@ -191,6 +195,9 @@
             },
             colorPicked() {
                 return this.color != '' && this.color != undefined
+            },
+            enableSegmentation(){
+                return this.drawEnabled && this.colorPicked && this.drawing
             }
         },
         mounted() {
@@ -241,7 +248,7 @@
         },
         watch: {
             cursor() {
-                if (this.drawing && this.colorPicked) {
+                if (this.enableSegmentation) {
                     this.segm_ctx.lineTo(this.cursor.x, this.cursor.y)
                     this.segm_ctx.stroke()
                 }
@@ -288,7 +295,8 @@
                 'canvas': null,
                 'display_canv': null,
                 'ctx': null,
-                'scaled_height': this.plane.y
+                'scaled_height': this.plane.y,
+                'draw_enabled': true
             }
         },
         components: {
