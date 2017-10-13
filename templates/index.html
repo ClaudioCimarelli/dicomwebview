@@ -77,25 +77,18 @@
 
 <template id="color-selector-template">
     <div>
-        <input
-                @keyup.enter="addNewColor"
-                placeholder="Add a label"
-        >
-        <input type="radio" v-for="(color, index) in colors" :key="index" :id="color.colorName+'-radio'"
-               :value="color.colorName" v-model="pickedColor">
-        <component is="colorElem" v-for="(color, index) in colors" :key="index"
-                   :color="color"
-                   @remove="removeColor(index)">
-        </component>
+        <template v-for="(color, index) in colors">
+            <input type="radio" :id="color.colorName+'-radio'"
+                   :value="color.colorName" v-model="pickedColor" :key="index">
+            <component is="colorElem" :color="color" :key="index"> </component>
+            <span :key="index">${color.label}</span>
+            <button @click="removeColor(index)" :key="index">X</button>
+        </template>
     </div>
 </template>
 
 <template id="color-template">
-    <div>
-        <canvas :id="color.colorName+'-canv'" width="10px" height="10px"></canvas>
-        <span>${color.label}</span>
-        <button @click="$emit('remove')">X</button>
-    </div>
+    <canvas :id="color.colorName+'-canv'" width="10px" height="10px"></canvas>
 </template>
 
 <script>
@@ -105,11 +98,23 @@
         template: '#color-template',
         delimiters: ['${', '}'],
         props: ['color'],
-        mounted() {
-            var c = document.getElementById(this.color.colorName + "-canv");
-            var ctx = c.getContext("2d");
-            ctx.fillStyle = this.color.colorName;
-            ctx.fillRect(0, 0, 10, 10);
+        data(){
+            return{
+                'canv': null,
+                'ctx': null
+            }
+        },
+        mounted(){
+            this.canv = document.getElementById(this.color.colorName + "-canv")
+            this.ctx = this.canv.getContext("2d")
+            this.ctx.fillStyle = this.color.colorName
+            this.ctx.fillRect(0, 0, 10, 10)
+        },
+        watch:{
+            color(){
+                this.ctx.fillStyle = this.color.colorName
+                this.ctx.fillRect(0, 0, 10, 10)
+            }
         }
     }
 
@@ -145,15 +150,15 @@
         methods: {
             addNewColor() {
             },
-            removeColor(index){
-                if(this.colors[index].colorName==this.pickedColor){
-                    this.pickedColor=''
+            removeColor(index) {
+                if (this.colors[index].colorName == this.pickedColor) {
+                    this.pickedColor = ''
                 }
                 this.colors.splice(index, 1)
             }
         },
-        watch:{
-            pickedColor(){
+        watch: {
+            pickedColor() {
                 this.$emit('colorchange', this.pickedColor)
             }
         }
@@ -184,8 +189,8 @@
             display() {
                 return this.zoomLevel == this.z
             },
-            colorPicked(){
-                return this.color!='' && this.color!= undefined
+            colorPicked() {
+                return this.color != '' && this.color != undefined
             }
         },
         mounted() {
@@ -220,15 +225,15 @@
                     y: event.layerY
                 }
             },
-            startDraw(){
+            startDraw() {
                 if (this.colorPicked) {
                     this.segm_ctx.beginPath()
                     this.segm_ctx.moveTo(this.cursor.x, this.cursor.y)
                     this.drawing = true
                 }
             },
-            endDraw(){
-                if(this.colorPicked){
+            endDraw() {
+                if (this.colorPicked) {
                     this.segm_ctx.fill()
                     this.drawing = false
                 }
@@ -362,8 +367,8 @@
                 'color': ''
             }
         },
-        methods:{
-            changeColor(colorName){
+        methods: {
+            changeColor(colorName) {
                 this.color = colorName
             }
         }
