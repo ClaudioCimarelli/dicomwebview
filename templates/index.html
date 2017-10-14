@@ -219,21 +219,17 @@
             this.segm_ctx = this.segm_canv.getContext("2d")
             this.segm_ctx.globalAlpha = 0.3
 
-            for (x in _.range(5)) {
-                if ((parseInt(x) + 1) != this.z) {
-                    var self = this
-                    segmentationBus.$on('scaling' + (parseInt(x) + 1), function (layerZ, image) {
-                        if (self.display) {
-                            let ctx = self.displayCanvas.getContext("2d")
-                            ctx.imageSmoothingEnabled = false
-                            ctx.mozImageSmoothingEnabled = false
-                            ctx.webkitImageSmoothingEnabled = false
-                            ctx.msImageSmoothingEnabled = false
-                            ctx.drawImage(image, 0, 0, self.segm_canv.width, self.segm_canv.height)
-                        }
-                    })
+            var self = this
+            segmentationBus.$on('scaling', function (image) {
+                if (self.display) {
+                    let ctx = self.displayCanvas.getContext("2d")
+                    ctx.imageSmoothingEnabled = false
+                    ctx.mozImageSmoothingEnabled = false
+                    ctx.webkitImageSmoothingEnabled = false
+                    ctx.msImageSmoothingEnabled = false
+                    ctx.drawImage(image, 0, 0, self.segm_canv.width, self.segm_canv.height)
                 }
-            }
+            })
         },
         methods: {
             get_coordinates(event) {
@@ -266,9 +262,9 @@
                 }
             },
             zoomLevel() {
-                if (!this.display) {
+                if (this.drawEnabled && !this.display) {
                     let image = cloneCanvas(this.segm_canv)
-                    segmentationBus.$emit('scaling' + this.z, this.z, image)
+                    segmentationBus.$emit('scaling', image)
                 }
             },
             color() {
@@ -441,8 +437,6 @@
                 yTo = y
                 x = 0
                 xTo = this.scaled_width
-
-                console.log("%d  %d", y, xTo)
 
                 context.moveTo(x,y)
                 context.lineTo(xTo, yTo)
