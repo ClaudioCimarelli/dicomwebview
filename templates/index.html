@@ -208,6 +208,7 @@
             this.segm_canv.height = this.scaledHeight * (this.z + 1) / 2
 
             this.segm_ctx = this.segm_canv.getContext("2d")
+            this.segm_ctx.globalAlpha = 0.3
 
             for (x in _.range(5)) {
                 if ((parseInt(x) + 1) != this.z) {
@@ -263,7 +264,7 @@
             },
             color() {
                 this.segm_ctx.strokeStyle = this.color
-                this.segm_ctx.fillStyle = this.color;
+                this.segm_ctx.fillStyle = this.color
             }
         }
     }
@@ -325,6 +326,7 @@
 
             this.display_canv = document.getElementById("display-canv")
             this.display_canv.style.imageRendering = 'pixelated'
+            this.display_canv.getContext("2d").globalAlpha = 0.3
 
             slicesBus.$on('changeSlice', this.changeSlice)
 
