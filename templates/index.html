@@ -39,20 +39,29 @@
             <canvas :id="plane.name + '-image'"
                     style="position: absolute; left: 0; top: 0; z-index: 0;"
                     :height="scaled_height + 'px'"
+                    :width="scaled_width + 'px'">
+            </canvas>
+            <canvas :id="plane.name + '-planeLines'"
+                    style="position: absolute; left: 0; top: 0; z-index: 0;"
+                    :height="scaled_height + 'px'"
                     :width="scaled_width + 'px'"
                     @mousemove="get_coordinates"
-                    @click="getSlice">
+                    @click="getSlice"
+                    v-show="!draw_enabled">
             </canvas>
             <canvas id="display-canv"
+                    v-if="plane.name=='axial'"
                     style="position: absolute; left: 0; top: 0; z-index: 0;"
                     :height="scaled_height + 'px'"
                     :width="scaled_width + 'px'"
                     v-show="draw_enabled">
             </canvas>
-            <component is="segmentation" v-if="plane.name=='axial'" v-for="z in _.range(5)" :key="z"
+            <component is="segmentation"
+                       v-if="plane.name=='axial'"
+                       v-for="z in 5" :key="z"
                        :plane-name="plane.name"
                        :scaled-height="scaled_height" :scaled-width="scaled_width"
-                       :zoom="zoom" :z="parseInt(z)+1"
+                       :zoom="zoom" :z="z"
                        :display-canvas="display_canv"
                        :color="color" :draw-enabled="draw_enabled">
             </component>
@@ -87,7 +96,7 @@
         <template v-for="(color, index) in colors">
             <input type="radio" :id="color.colorName+'-radio'"
                    :value="color.colorName" v-model="pickedColor" :key="index">
-            <component is="colorElem" :color="color" :key="index"> </component>
+            <component is="colorElem" :color="color" :key="index"></component>
             <span :key="index">${color.label}</span>
             <button @click="removeColor(index)" :key="index">X</button>
         </template>
@@ -105,20 +114,20 @@
         template: '#color-template',
         delimiters: ['${', '}'],
         props: ['color'],
-        data(){
-            return{
+        data() {
+            return {
                 'canv': null,
                 'ctx': null
             }
         },
-        mounted(){
+        mounted() {
             this.canv = document.getElementById(this.color.colorName + "-canv")
             this.ctx = this.canv.getContext("2d")
             this.ctx.fillStyle = this.color.colorName
             this.ctx.fillRect(0, 0, 10, 10)
         },
-        watch:{
-            color(){
+        watch: {
+            color() {
                 this.ctx.fillStyle = this.color.colorName
                 this.ctx.fillRect(0, 0, 10, 10)
             }
@@ -198,7 +207,7 @@
             colorPicked() {
                 return this.color != '' && this.color != undefined
             },
-            enableSegmentation(){
+            enableSegmentation() {
                 return this.drawEnabled && this.colorPicked && this.drawing
             }
         },
@@ -305,7 +314,9 @@
                     'x': 0,
                     'y': 0
                 },
-                'planeLine_canv':null
+                'planelines_canv': null,
+                'plane_line_x':0,
+                'plane_line_y':0
             }
         },
         components: {
@@ -328,7 +339,11 @@
             this.display_canv.style.imageRendering = 'pixelated'
             this.display_canv.getContext("2d").globalAlpha = 0.3
 
+            this.planelines_canv = document.getElementById(this.plane.name + '-planeLines')
+            let context = this.planelines_canv.getContext("2d")
+
             slicesBus.$on('changeSlice', this.changeSlice)
+            slicesBus.$on('sliceChanged', this.displayPlaneLines)
 
             this.slice_number = Math.floor(this.plane.z / 2)
         },
@@ -339,20 +354,20 @@
                     y: event.layerY
                 }
             },
-            getSlice(){
-                let x = Math.floor(this.cursor.x/(this.zoom*this.plane.ratio))
-                let y = this.plane.y - Math.floor(this.cursor.y/(this.zoom)) -1
-                slicesBus.$emit('changeSlice',this.plane.name, x, y)
+            getSlice() {
+                let x = Math.floor(this.cursor.x / (this.zoom * this.plane.ratio))
+                let y = this.plane.y - Math.floor(this.cursor.y / (this.zoom)) - 1
+                slicesBus.$emit('changeSlice', this.plane.name, x, y)
             },
-            changeSlice(planeName, x, y){
-                if(planeName!=this.plane.name){
-                    if(this.plane.name=='sagittal'){
+            changeSlice(planeName, x, y) {
+                if (planeName != this.plane.name) {
+                    if (this.plane.name == 'sagittal') {
                         this.slice_number = x
                     }
-                    else if (this.plane.name =='coronal' && planeName =='sagittal'){
-                        this.slice_number = this.plane.x - x -1
+                    else if (this.plane.name == 'coronal' && planeName == 'sagittal') {
+                        this.slice_number = this.plane.x - x - 1
                     }
-                    else{
+                    else {
                         this.slice_number = y
                     }
                 }
@@ -368,33 +383,97 @@
                         return res.blob();
                     })
                     .then(function (myBlob) {
-                        let img = new Image();
-                        img.onload = function () {
-                            self.ctx.drawImage(img, 0, 0, self.scaled_width, self.scaled_height)
-                        }
                         let objectURL = URL.createObjectURL(myBlob)
-                        img.src = objectURL
                         self.image_url = objectURL
+                        self.loadImage()
                     })
                     .catch((err) => {
                         console.warn(err)
                     })
-            }
-        },
-        watch: {
-            slice_number() {
-                this.fetch_slice()
             },
-            scaled_width() {
+            displayPlaneLines(planeName, sliceNum) {
+                if(planeName==this.plane.name) return
+                let sliceNumInt = parseInt(sliceNum)
+                if (planeName == 'sagittal') {
+                    this.plane_line_x = sliceNumInt
+                }
+                else if (planeName == 'coronal' && this.plane.name == 'sagittal') {
+                    this.plane_line_x = this.plane.x - sliceNumInt -1
+                }
+                else {
+                    this.plane_line_y = this.plane.y - sliceNumInt -1
+                }
+            },
+            loadImage(){
                 let img = new Image();
                 let self = this
                 img.onload = function () {
                     self.ctx.drawImage(img, 0, 0, self.scaled_width, self.scaled_height)
                 }
                 img.src = this.image_url
+            }
+        },
+        watch: {
+            slice_number() {
+                slicesBus.$emit('sliceChanged', this.plane.name, this.slice_number)
+                this.fetch_slice()
             },
-            cursor(){
+            scaled_width() {
+                this.loadImage()
+            },
+            plane_line_x(){
+                let x, y = 0
+                let xTo, yTo= 0
+                let context = this.planelines_canv.getContext("2d")
+                context.clearRect(0, 0, this.scaled_width, this.scaled_height)
+                context.strokeStyle = "yellow"
+                context.beginPath()
 
+                x = this.plane_line_x * (this.zoom * this.plane.ratio)
+                xTo = x
+                yTo = this.scaled_height
+
+                context.moveTo(x,y)
+                context.lineTo(xTo, yTo)
+                context.stroke()
+
+                y = this.plane_line_y * this.zoom
+                yTo = y
+                x = 0
+                xTo = this.scaled_width
+
+                console.log("%d  %d", y, xTo)
+
+                context.moveTo(x,y)
+                context.lineTo(xTo, yTo)
+                context.stroke()
+            },
+            plane_line_y(){
+                let x, y = 0
+                let xTo, yTo= 0
+                let context = this.planelines_canv.getContext("2d")
+                context.clearRect(0, 0, this.scaled_width, this.scaled_height)
+                context.strokeStyle = "yellow"
+                context.beginPath()
+
+                x = this.plane_line_x * (this.zoom * this.plane.ratio)
+                xTo = x
+                yTo = this.scaled_height
+
+                context.moveTo(x,y)
+                context.lineTo(xTo, yTo)
+                context.stroke()
+
+                y = this.plane_line_y * this.zoom
+                yTo = y
+                x = 0
+                xTo = this.scaled_width
+
+                context.moveTo(x,y)
+                context.lineTo(xTo, yTo)
+                context.stroke()
+            },
+            cursor() {
             }
         }
     }
