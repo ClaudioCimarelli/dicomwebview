@@ -27,7 +27,7 @@ def index():
 
 @app.route('/api/0/stored_dicom/get_slice/axial/<int:slice_n>', methods=['GET'])
 def get_slice_axial(slice_n):
-    image = create_image_slice(0, slice_n)
+    image = create_image_slice(0, dims[0] - slice_n -1)
     return send_file(image,
                      attachment_filename='axial' + str(slice_n) + '.png',
                      mimetype='image/png')
@@ -35,7 +35,7 @@ def get_slice_axial(slice_n):
 
 @app.route('/api/0/stored_dicom/get_slice/coronal/<int:slice_n>', methods=['GET'])
 def get_slice_coronal(slice_n):
-    image = create_image_slice(1, slice_n)
+    image = create_image_slice(1, dims[1] - slice_n - 1)
     return send_file(image,
                      attachment_filename='coronal' + str(slice_n) + '.png',
                      mimetype='image/png')
@@ -43,7 +43,7 @@ def get_slice_coronal(slice_n):
 
 @app.route('/api/0/stored_dicom/get_slice/sagittal/<int:slice_n>', methods=['GET'])
 def get_slice_sagittal(slice_n):
-    image = create_image_slice(2, slice_n)
+    image = create_image_slice(2, dims[2] - slice_n - 1)
     return send_file(image,
                      attachment_filename='sagittal' + str(slice_n) + '.png',
                      mimetype='image/png')

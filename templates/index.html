@@ -20,7 +20,7 @@
     <div>
         <div>
             <input id="canvas_box_size-slider'" type="range" v-model="canvas_box_size"
-                   min="600"
+                   min="300"
                    max="1200"/>
             <component is="colorSelector" @colorchange="changeColor"></component>
         </div>
@@ -39,7 +39,9 @@
             <canvas :id="plane.name + '-image'"
                     style="position: absolute; left: 0; top: 0; z-index: 0;"
                     :height="scaled_height + 'px'"
-                    :width="scaled_width + 'px'">
+                    :width="scaled_width + 'px'"
+                    @mousemove="get_coordinates"
+                    @click="getSlice">
             </canvas>
             <canvas id="display-canv"
                     style="position: absolute; left: 0; top: 0; z-index: 0;"
@@ -283,6 +285,7 @@
         return newCanvas;
     }
 
+    var slicesBus = new Vue()
 
     var slice_component = {
         template: '#slice-templ',
@@ -296,7 +299,12 @@
                 'display_canv': null,
                 'ctx': null,
                 'scaled_height': this.plane.y,
-                'draw_enabled': true
+                'draw_enabled': false,
+                'cursor': {
+                    'x': 0,
+                    'y': 0
+                },
+                'planeLine_canv':null
             }
         },
         components: {
@@ -307,8 +315,7 @@
                 return this.scaled_height / this.plane.y
             },
             scaled_width() {
-                let real_width = Math.floor(this.plane.x * this.plane.ratio)
-                let scaled_width = Math.floor(real_width * this.scaled_height / this.plane.y)
+                let scaled_width = Math.floor(this.plane.x * this.plane.ratio * this.zoom)
                 return scaled_width
             }
         },
@@ -319,9 +326,35 @@
             this.display_canv = document.getElementById("display-canv")
             this.display_canv.style.imageRendering = 'pixelated'
 
+            slicesBus.$on('changeSlice', this.changeSlice)
+
             this.slice_number = Math.floor(this.plane.z / 2)
         },
         methods: {
+            get_coordinates(event) {
+                this.cursor = {
+                    x: event.layerX,
+                    y: event.layerY
+                }
+            },
+            getSlice(){
+                let x = Math.floor(this.cursor.x/(this.zoom*this.plane.ratio))
+                let y = this.plane.y - Math.floor(this.cursor.y/(this.zoom)) -1
+                slicesBus.$emit('changeSlice',this.plane.name, x, y)
+            },
+            changeSlice(planeName, x, y){
+                if(planeName!=this.plane.name){
+                    if(this.plane.name=='sagittal'){
+                        this.slice_number = x
+                    }
+                    else if (this.plane.name =='coronal' && planeName =='sagittal'){
+                        this.slice_number = this.plane.x - x -1
+                    }
+                    else{
+                        this.slice_number = y
+                    }
+                }
+            },
             fetch_slice() {
                 var self = this
                 fetch(`api/0/stored_dicom/get_slice/${this.plane.name}/${this.slice_number}`)
@@ -357,6 +390,9 @@
                     self.ctx.drawImage(img, 0, 0, self.scaled_width, self.scaled_height)
                 }
                 img.src = this.image_url
+            },
+            cursor(){
+
             }
         }
     }
