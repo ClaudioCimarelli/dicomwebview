@@ -63,7 +63,8 @@
                        :scaled-height="scaled_height" :scaled-width="scaled_width"
                        :zoom="zoom" :z="z"
                        :display-canvas="display_canv"
-                       :color="color" :draw-enabled="draw_enabled">
+                       :color="color" :draw-enabled="draw_enabled"
+                       :slice-number="slice_number">
             </component>
         </div>
         <span>slice number: ${slice_number}</span>
@@ -185,7 +186,8 @@
     var segmentation_component = {
         template: '#segmentation-template',
         delimiters: ['${', '}'],
-        props: ['displayCanvas', 'drawEnabled', 'planeName', 'scaledWidth', 'scaledHeight', 'zoom', 'z', 'color'],
+        props: ['displayCanvas', 'drawEnabled', 'planeName', 'scaledWidth', 'scaledHeight',
+            'sliceNumber', 'zoom', 'z', 'color'],
         data() {
             return {
                 'segm_canv': null,
@@ -270,6 +272,9 @@
             color() {
                 this.segm_ctx.strokeStyle = this.color
                 this.segm_ctx.fillStyle = this.color
+            },
+            sliceNumber(){
+                this.segm_ctx.clearRect(0, 0, this.segm_canv.width, this.segm_canv.height)
             }
         }
     }
@@ -311,8 +316,8 @@
                     'y': 0
                 },
                 'planelines_canv': null,
-                'plane_line_x':0,
-                'plane_line_y':0
+                'plane_line_x': 0,
+                'plane_line_y': 0
             }
         },
         components: {
@@ -343,7 +348,7 @@
 
             this.slice_number = Math.floor(this.plane.z / 2)
         },
-        updated(){
+        updated() {
             this.drawPlaneLines()
         },
         methods: {
@@ -361,10 +366,10 @@
             changeSlice(planeName, x, y) {
                 if (planeName != this.plane.name) {
                     if (this.plane.name == 'sagittal') {
-                        if(planeName == 'coronal'){
+                        if (planeName == 'coronal') {
                             this.slice_number = this.plane.x - x - 1
                         }
-                        else{
+                        else {
                             this.slice_number = x
                         }
                     }
@@ -396,24 +401,24 @@
                     })
             },
             displayPlaneLines(planeName, sliceNum) {
-                if(planeName==this.plane.name) return
+                if (planeName == this.plane.name) return
                 let sliceNumInt = parseInt(sliceNum)
                 if (planeName == 'sagittal') {
-                    if(this.plane.name == "coronal"){
-                        this.plane_line_x = this.plane.x - sliceNumInt -1
+                    if (this.plane.name == "coronal") {
+                        this.plane_line_x = this.plane.x - sliceNumInt - 1
                     }
-                    else{
+                    else {
                         this.plane_line_x = sliceNumInt
                     }
                 }
                 else if (planeName == 'coronal' && this.plane.name == 'sagittal') {
-                    this.plane_line_x = this.plane.x - sliceNumInt -1
+                    this.plane_line_x = this.plane.x - sliceNumInt - 1
                 }
                 else {
-                    this.plane_line_y = this.plane.y - sliceNumInt -1
+                    this.plane_line_y = this.plane.y - sliceNumInt - 1
                 }
             },
-            loadImage(){
+            loadImage() {
                 let img = new Image();
                 let self = this
                 img.onload = function () {
@@ -421,9 +426,9 @@
                 }
                 img.src = this.image_url
             },
-            drawPlaneLines(){
+            drawPlaneLines() {
                 let x, y = 0
-                let xTo, yTo= 0
+                let xTo, yTo = 0
                 let context = this.planelines_canv.getContext("2d")
                 context.clearRect(0, 0, this.scaled_width, this.scaled_height)
                 context.strokeStyle = "yellow"
@@ -433,7 +438,7 @@
                 xTo = x
                 yTo = this.scaled_height
 
-                context.moveTo(x,y)
+                context.moveTo(x, y)
                 context.lineTo(xTo, yTo)
                 context.stroke()
 
@@ -442,7 +447,7 @@
                 x = 0
                 xTo = this.scaled_width
 
-                context.moveTo(x,y)
+                context.moveTo(x, y)
                 context.lineTo(xTo, yTo)
                 context.stroke()
             }
@@ -455,10 +460,10 @@
             scaled_width() {
                 this.loadImage()
             },
-            plane_line_x(){
+            plane_line_x() {
                 this.drawPlaneLines()
             },
-            plane_line_y(){
+            plane_line_y() {
                 this.drawPlaneLines()
             },
             cursor() {
