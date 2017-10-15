@@ -343,6 +343,9 @@
 
             this.slice_number = Math.floor(this.plane.z / 2)
         },
+        updated(){
+            this.drawPlaneLines()
+        },
         methods: {
             get_coordinates(event) {
                 this.cursor = {
@@ -407,65 +410,46 @@
                     self.ctx.drawImage(img, 0, 0, self.scaled_width, self.scaled_height)
                 }
                 img.src = this.image_url
+            },
+            drawPlaneLines(){
+                let x, y = 0
+                let xTo, yTo= 0
+                let context = this.planelines_canv.getContext("2d")
+                context.clearRect(0, 0, this.scaled_width, this.scaled_height)
+                context.strokeStyle = "yellow"
+                context.beginPath()
+
+                x = this.plane_line_x * (this.zoom * this.plane.ratio)
+                xTo = x
+                yTo = this.scaled_height
+
+                context.moveTo(x,y)
+                context.lineTo(xTo, yTo)
+                context.stroke()
+
+                y = this.plane_line_y * this.zoom
+                yTo = y
+                x = 0
+                xTo = this.scaled_width
+
+                context.moveTo(x,y)
+                context.lineTo(xTo, yTo)
+                context.stroke()
             }
         },
         watch: {
             slice_number() {
-                slicesBus.$emit('sliceChanged', this.plane.name, this.slice_number)
                 this.fetch_slice()
+                slicesBus.$emit('sliceChanged', this.plane.name, this.slice_number)
             },
             scaled_width() {
                 this.loadImage()
             },
             plane_line_x(){
-                let x, y = 0
-                let xTo, yTo= 0
-                let context = this.planelines_canv.getContext("2d")
-                context.clearRect(0, 0, this.scaled_width, this.scaled_height)
-                context.strokeStyle = "yellow"
-                context.beginPath()
-
-                x = this.plane_line_x * (this.zoom * this.plane.ratio)
-                xTo = x
-                yTo = this.scaled_height
-
-                context.moveTo(x,y)
-                context.lineTo(xTo, yTo)
-                context.stroke()
-
-                y = this.plane_line_y * this.zoom
-                yTo = y
-                x = 0
-                xTo = this.scaled_width
-
-                context.moveTo(x,y)
-                context.lineTo(xTo, yTo)
-                context.stroke()
+                this.drawPlaneLines()
             },
             plane_line_y(){
-                let x, y = 0
-                let xTo, yTo= 0
-                let context = this.planelines_canv.getContext("2d")
-                context.clearRect(0, 0, this.scaled_width, this.scaled_height)
-                context.strokeStyle = "yellow"
-                context.beginPath()
-
-                x = this.plane_line_x * (this.zoom * this.plane.ratio)
-                xTo = x
-                yTo = this.scaled_height
-
-                context.moveTo(x,y)
-                context.lineTo(xTo, yTo)
-                context.stroke()
-
-                y = this.plane_line_y * this.zoom
-                yTo = y
-                x = 0
-                xTo = this.scaled_width
-
-                context.moveTo(x,y)
-                context.lineTo(xTo, yTo)
-                context.stroke()
+                this.drawPlaneLines()
             },
             cursor() {
             }
