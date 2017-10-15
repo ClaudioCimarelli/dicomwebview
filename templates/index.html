@@ -361,7 +361,12 @@
             changeSlice(planeName, x, y) {
                 if (planeName != this.plane.name) {
                     if (this.plane.name == 'sagittal') {
-                        this.slice_number = x
+                        if(planeName == 'coronal'){
+                            this.slice_number = this.plane.x - x - 1
+                        }
+                        else{
+                            this.slice_number = x
+                        }
                     }
                     else if (this.plane.name == 'coronal' && planeName == 'sagittal') {
                         this.slice_number = this.plane.x - x - 1
@@ -394,7 +399,12 @@
                 if(planeName==this.plane.name) return
                 let sliceNumInt = parseInt(sliceNum)
                 if (planeName == 'sagittal') {
-                    this.plane_line_x = sliceNumInt
+                    if(this.plane.name == "coronal"){
+                        this.plane_line_x = this.plane.x - sliceNumInt -1
+                    }
+                    else{
+                        this.plane_line_x = sliceNumInt
+                    }
                 }
                 else if (planeName == 'coronal' && this.plane.name == 'sagittal') {
                     this.plane_line_x = this.plane.x - sliceNumInt -1
