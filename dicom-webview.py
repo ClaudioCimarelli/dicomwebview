@@ -6,6 +6,7 @@ import os
 import StringIO
 import png
 from PIL import Image
+import argparse
 
 app = Flask(__name__)
 
@@ -90,9 +91,17 @@ def create_image_slice(plane, slice_n):
 
 
 if __name__ == '__main__':
-    path = os.path.dirname(__file__)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", "--datapath", help="input image path", default=None)
+    args = parser.parse_args()
 
-    path_dicom = os.path.join(path, "DICOM_test/")
+    path = os.path.dirname(__file__)
+    if args.datapath is None:
+        path_dicom = os.path.join(path, "DICOM_test/")
+    else:
+        path_dicom = args.datapath
+
+
 
     dr = io3d.DataReader()
     datap = dr.Get3DData(path_dicom, dataplus_format=True)
