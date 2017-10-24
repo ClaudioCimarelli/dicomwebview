@@ -273,8 +273,17 @@
                 this.segm_ctx.strokeStyle = this.color
                 this.segm_ctx.fillStyle = this.color
             },
-            sliceNumber(){
+            sliceNumber() {
+                if (this.z == 1) {
+                    let dataUrl = this.segm_canv.toDataURL();
+                    $.post('/api/0/segmentation/push_segm/axial/' + this.sliceNumber, {
+                        imgBase64: dataUrl
+                    }, function (data, status) {
+                        console.log("Data: " + data + "\nStatus: " + status)
+                    })
+                }
                 this.segm_ctx.clearRect(0, 0, this.segm_canv.width, this.segm_canv.height)
+
             }
         }
     }
