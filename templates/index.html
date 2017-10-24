@@ -196,7 +196,8 @@
                     x: 0,
                     y: 0
                 },
-                'drawing': false
+                'drawing': false,
+                'savedImages': 0,
             }
         },
         computed: {
@@ -217,21 +218,40 @@
             this.segm_canv = document.getElementById(this.planeName + '-segmentation' + this.z)
             this.segm_canv.width = this.scaledWidth * (this.z + 1) / 2
             this.segm_canv.height = this.scaledHeight * (this.z + 1) / 2
+            this.segm_canv.style.imageRendering = 'pixelated'
 
             this.segm_ctx = this.segm_canv.getContext("2d")
-            this.segm_ctx.globalAlpha = 0.3
+            this.segm_ctx.globalAlpha = 0.7
+            this.segm_ctx.imageSmoothingEnabled = false
+            this.segm_ctx.mozImageSmoothingEnabled = false
+            this.segm_ctx.webkitImageSmoothingEnabled = false
+            this.segm_ctx.msImageSmoothingEnabled = false
 
             var self = this
             segmentationBus.$on('scaling', function (image) {
                 if (self.display) {
                     let ctx = self.displayCanvas.getContext("2d")
-                    ctx.imageSmoothingEnabled = false
-                    ctx.mozImageSmoothingEnabled = false
-                    ctx.webkitImageSmoothingEnabled = false
-                    ctx.msImageSmoothingEnabled = false
                     ctx.drawImage(image, 0, 0, self.segm_canv.width, self.segm_canv.height)
                 }
             })
+            if(this.z==1){
+                segmentationBus.$on('sendDrawtoSave', function (image) {
+                    self.segm_ctx.drawImage(image, 0, 0, self.segm_canv.width, self.segm_canv.height)
+                    self.savedImages++
+                    if(self.savedImages==4){
+                        let dataUrl = self.segm_canv.toDataURL();
+                        $.post('/api/0/segmentation/push_segm/axial/' + self.sliceNumber, {
+                            imgBase64: dataUrl
+                        }, function (data, status) {
+                            console.log("Data: " + data + "\nStatus: " + status)
+                        })
+                        self.segm_ctx.clearRect(0, 0, self.segm_canv.width, self.segm_canv.height)
+                        let ctx = self.displayCanvas.getContext("2d")
+                        ctx.clearRect(0, 0, self.displayCanvas.width, self.displayCanvas.height)
+                        self.savedImages = 0
+                    }
+                })
+            }
         },
         methods: {
             get_coordinates(event) {
@@ -274,16 +294,18 @@
                 this.segm_ctx.fillStyle = this.color
             },
             sliceNumber() {
-                if (this.z == 1) {
-                    let dataUrl = this.segm_canv.toDataURL();
-                    $.post('/api/0/segmentation/push_segm/axial/' + this.sliceNumber, {
-                        imgBase64: dataUrl
-                    }, function (data, status) {
-                        console.log("Data: " + data + "\nStatus: " + status)
-                    })
+                 if (this.drawEnabled && !this.display && this.z != 1) {
+                     let image = cloneCanvas(this.segm_canv)
+                     segmentationBus.$emit('sendDrawtoSave', image)
+                     this.segm_ctx.clearRect(0, 0, this.segm_canv.width, this.segm_canv.height)
+                 }
+            },
+            drawEnabled(){
+                if(!this.drawEnabled && this.z != 1){
+                     let image = cloneCanvas(this.segm_canv)
+                     segmentationBus.$emit('sendDrawtoSave', image)
+                     this.segm_ctx.clearRect(0, 0, this.segm_canv.width, this.segm_canv.height)
                 }
-                this.segm_ctx.clearRect(0, 0, this.segm_canv.width, this.segm_canv.height)
-
             }
         }
     }
@@ -347,7 +369,12 @@
 
             this.display_canv = document.getElementById("display-canv")
             this.display_canv.style.imageRendering = 'pixelated'
-            this.display_canv.getContext("2d").globalAlpha = 0.3
+            let ctx = this.display_canv.getContext("2d")
+            ctx.imageSmoothingEnabled = false
+            ctx.mozImageSmoothingEnabled = false
+            ctx.webkitImageSmoothingEnabled = false
+            ctx.msImageSmoothingEnabled = false
+            ctx.globalAlpha = 0.5
 
             this.planelines_canv = document.getElementById(this.plane.name + '-planeLines')
             let context = this.planelines_canv.getContext("2d")
