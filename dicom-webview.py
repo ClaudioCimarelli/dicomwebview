@@ -19,7 +19,7 @@ dims = []
 pixelSpacing = np.empty(1)
 max_intensity = 255
 min_intensity = 0
-
+segm_images = np.empty(1)
 
 APP_PATH = os.path.dirname(__file__)
 DICOM_PATH = 'DICOM_test/'
@@ -77,8 +77,9 @@ def push_segm_axial(slice_n):
         width = rgba[0]
         height = rgba[1]
         pixels = rgba[2]
-        planes = rgba[3]['planes']
-        pixel_array = np.fromiter(itertools.chain(*pixels), dtype=np.uint8).reshape(height, width, planes)
+        pixel_array = np.fromiter(itertools.chain(*pixels), dtype=np.uint8).reshape(height, width, -1)
+        pixel_array[..., 3] = np.where(pixel_array[..., 3] > 0, 127, 0)
+        segm_images[slice_n] = pixel_array
         img_path = os.path.join(APP_PATH, SEGM_IMAGE_PATH)
         img_path = os.path.join(img_path, 'segm-slice' + str(slice_n) + '.png')
         png.from_array(pixel_array, 'RGBA').save(img_path)
@@ -119,8 +120,8 @@ if __name__ == '__main__':
     datap = dr.Get3DData(path_dicom, dataplus_format=True)
 
     images = datap["data3d"]
-
     dims = images.shape
+    segm_images = np.empty(shape=[dims[0], dims[1], dims[2], 4], dtype=np.uint8)
 
     pixelSpacing = datap["voxelsize_mm"]
     pixelSpacing[0] = pixelSpacing[0] if pixelSpacing[0] != 0 else 1

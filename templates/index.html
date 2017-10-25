@@ -41,6 +41,12 @@
                     :height="scaled_height + 'px'"
                     :width="scaled_width + 'px'">
             </canvas>
+            <canvas :id="'display-segm-'+plane.name"
+                    style="position: absolute; left: 0; top: 0; z-index: 0;"
+                    :height="scaled_height + 'px'"
+                    :width="scaled_width + 'px'"
+                    v-show="draw_enabled || plane.name!='axial'" >
+            </canvas>
             <canvas :id="plane.name + '-planeLines'"
                     style="position: absolute; left: 0; top: 0; z-index: 0;"
                     :height="scaled_height + 'px'"
@@ -48,13 +54,6 @@
                     @mousemove="get_coordinates"
                     @click="getSlice"
                     v-show="!draw_enabled">
-            </canvas>
-            <canvas id="display-canv"
-                    v-if="plane.name=='axial'"
-                    style="position: absolute; left: 0; top: 0; z-index: 0;"
-                    :height="scaled_height + 'px'"
-                    :width="scaled_width + 'px'"
-                    v-show="draw_enabled">
             </canvas>
             <component is="segmentation"
                        v-if="plane.name=='axial'"
@@ -367,7 +366,7 @@
             this.canvas = document.getElementById(this.plane.name + '-image')
             this.ctx = this.canvas.getContext("2d")
 
-            this.display_canv = document.getElementById("display-canv")
+            this.display_canv = document.getElementById("display-segm-"+this.plane.name)
             this.display_canv.style.imageRendering = 'pixelated'
             let ctx = this.display_canv.getContext("2d")
             ctx.imageSmoothingEnabled = false
