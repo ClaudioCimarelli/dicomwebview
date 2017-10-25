@@ -7,6 +7,7 @@ import StringIO
 import png
 import argparse
 import base64
+import itertools
 
 
 app = Flask(__name__)
@@ -19,6 +20,9 @@ pixelSpacing = np.empty(1)
 max_intensity = 255
 min_intensity = 0
 
+
+APP_PATH = os.path.dirname(__file__)
+DICOM_PATH = 'DICOM_test/'
 SEGM_IMAGE_PATH = 'segmentation_images/'
 
 
@@ -73,10 +77,11 @@ def push_segm_axial(slice_n):
         width = rgba[0]
         height = rgba[1]
         pixels = rgba[2]
-        path = os.path.dirname(__file__)
-        img_path = os.path.join(path, SEGM_IMAGE_PATH)
+        planes = rgba[3]['planes']
+        pixel_array = np.fromiter(itertools.chain(*pixels), dtype=np.uint8).reshape(height, width, planes)
+        img_path = os.path.join(APP_PATH, SEGM_IMAGE_PATH)
         img_path = os.path.join(img_path, 'segm-slice' + str(slice_n) + '.png')
-        png.from_array(pixels, 'RGBA', info={'height': height, 'width': width}).save(img_path)
+        png.from_array(pixel_array, 'RGBA').save(img_path)
         return 'image saved'
     else:
         return 'no images'
@@ -105,9 +110,8 @@ if __name__ == '__main__':
     parser.add_argument("-i", "--datapath", help="input image path", default=None)
     args = parser.parse_args()
 
-    path = os.path.dirname(__file__)
     if args.datapath is None:
-        path_dicom = os.path.join(path, "DICOM_test/")
+        path_dicom = os.path.join(APP_PATH, DICOM_PATH)
     else:
         path_dicom = args.datapath
 
