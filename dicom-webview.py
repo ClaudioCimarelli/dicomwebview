@@ -40,27 +40,12 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/api/0/stored_dicom/get_slice/axial/<int:slice_n>', methods=['GET'])
-def get_slice_axial(slice_n):
-    image = create_image_slice(0, dims[0] - slice_n -1)
+@app.route('/api/0/stored_dicom/get_slice/<string:plane>/<int:slice_n>', methods=['GET'])
+def get_slice(plane, slice_n):
+    plane_n = getattr(Planes, plane.upper())
+    image = create_image_slice(plane_n, dims[plane_n] - slice_n -1)
     return send_file(image,
-                     attachment_filename='axial' + str(slice_n) + '.png',
-                     mimetype='image/png')
-
-
-@app.route('/api/0/stored_dicom/get_slice/coronal/<int:slice_n>', methods=['GET'])
-def get_slice_coronal(slice_n):
-    image = create_image_slice(1, dims[1] - slice_n - 1)
-    return send_file(image,
-                     attachment_filename='coronal' + str(slice_n) + '.png',
-                     mimetype='image/png')
-
-
-@app.route('/api/0/stored_dicom/get_slice/sagittal/<int:slice_n>', methods=['GET'])
-def get_slice_sagittal(slice_n):
-    image = create_image_slice(2, dims[2] - slice_n - 1)
-    return send_file(image,
-                     attachment_filename='sagittal' + str(slice_n) + '.png',
+                     attachment_filename=plane + str(slice_n) + '.png',
                      mimetype='image/png')
 
 
@@ -79,21 +64,25 @@ def push_segm_axial(slice_n):
     if files.__len__()>0:
         img_string = files['imgBase64']
         img_string = img_string.replace("data:image/png;base64,", '')
-        dec_image = base64.decodestring(img_string)
+        dec_image = base64.decodestring(img_string) #decode base64 image to binary format
         r = png.Reader(bytes=dec_image)
         rgba = r.asRGBA()
         width = rgba[0]
         height = rgba[1]
         pixels = rgba[2]
         pixel_array = np.fromiter(itertools.chain(*pixels), dtype=np.uint8).reshape(height, width, -1)
+
+        # modify opacity to 0.5 or 127
         pixel_array[..., 3] = np.where(pixel_array[..., 3] > 0, 127, 0)
+
+        # maintaining the same order of the DICOM images, from upper body to lower in the array
         segm_images[dims[0] - slice_n - 1] = pixel_array
         img_path = os.path.join(APP_PATH, SEGM_IMAGE_PATH)
         img_path = os.path.join(img_path, 'segm-slice' + str(slice_n) + '.png')
         png.from_array(pixel_array, 'RGBA').save(img_path)
-        return 'image saved'
+        return 'image saved as: ' + 'segm-slice' + str(slice_n) + '.png'
     else:
-        return 'no images'
+        return 'no image received'
 
 
 def create_segm_image(plane, slice_n):
