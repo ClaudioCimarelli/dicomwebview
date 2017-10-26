@@ -58,7 +58,7 @@ def get_segm_image(plane, slice_n):
                      mimetype='image/png')
 
 
-@app.route('/api/0/segmentation/push_segm/axial/<int:slice_n>', methods=['POST'])
+@app.route('/api/0/segmentation/push_segm_image/axial/<int:slice_n>', methods=['POST'])
 def push_segm_axial(slice_n):
     files = request.values
     if files.__len__()>0:
@@ -78,9 +78,9 @@ def push_segm_axial(slice_n):
         # maintaining the same order of the DICOM images, from upper body to lower in the array
         segm_images[dims[0] - slice_n - 1] = pixel_array
         img_path = os.path.join(APP_PATH, SEGM_IMAGE_PATH)
-        img_path = os.path.join(img_path, 'segm-slice' + str(slice_n) + '.png')
+        img_path = os.path.join(img_path, 'segm-slice' + str(slice_n).zfill(4) + '.png')
         png.from_array(pixel_array, 'RGBA').save(img_path)
-        return 'image saved as: ' + 'segm-slice' + str(slice_n) + '.png'
+        return 'image saved as: ' + 'segm-slice' + str(slice_n).zfill(4) + '.png'
     else:
         return 'no image received'
 
@@ -108,7 +108,7 @@ def create_image_slice(plane, slice_n):
     image_pixel *= 255
 
     # Writing the PNG file
-    png.from_array(image_pixel, 'L', info={'bitdepth':8}).save(png_file)
+    png.from_array(image_pixel, 'L', info={'bitdepth': 8}).save(png_file)
     png_file.seek(0)
 
     return png_file

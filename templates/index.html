@@ -197,6 +197,8 @@
                 },
                 'drawing': false,
                 'savedImages': 0,
+                'prevSliceNumber': this.sliceNumber,
+                'drawNotSaved' : false
             }
         },
         computed: {
@@ -226,31 +228,23 @@
             this.segm_ctx.webkitImageSmoothingEnabled = false
             this.segm_ctx.msImageSmoothingEnabled = false
 
-            var self = this
+            let self = this
             segmentationBus.$on('scaling', function (image) {
                 if (self.display) {
                     let ctx = self.displayCanvas.getContext("2d")
-                    ctx.drawImage(image, 0, 0, self.segm_canv.width, self.segm_canv.height)
+                    ctx.drawImage(image, 0, 0, self.scaledWidth, self.scaledHeight)
                 }
             })
+
             if(this.z==1){
-                segmentationBus.$on('sendDrawtoSave', function (image) {
-                    self.segm_ctx.drawImage(image, 0, 0, self.segm_canv.width, self.segm_canv.height)
-                    self.savedImages++
-                    if(self.savedImages==4){
-                        let dataUrl = self.segm_canv.toDataURL();
-                        $.post('/api/0/segmentation/push_segm/axial/' + self.sliceNumber, {
-                            imgBase64: dataUrl
-                        }, function (data, status) {
-                            console.log("Data: " + data + "\nStatus: " + status)
-                        })
-                        self.segm_ctx.clearRect(0, 0, self.segm_canv.width, self.segm_canv.height)
-                        let ctx = self.displayCanvas.getContext("2d")
-                        ctx.clearRect(0, 0, self.displayCanvas.width, self.displayCanvas.height)
-                        self.savedImages = 0
-                    }
-                })
+                segmentationBus.$on('sendDrawtoSave', this.postSegmImage)
             }
+
+            segmentationBus.$on('drawNotSaved', function(saved){
+                self.drawNotSaved = saved
+            })
+        },
+        beforeUpdate(){
         },
         methods: {
             get_coordinates(event) {
@@ -266,6 +260,7 @@
                     this.segm_ctx.beginPath()
                     this.segm_ctx.moveTo(this.cursor.x, this.cursor.y)
                     this.drawing = true
+                    this.drawNotSaved = true
                 }
             },
             endDraw() {
@@ -274,9 +269,31 @@
                     this.drawing = false
                 }
             },
-            fetch_segm_image() {
-                var self = this
-                fetch(`api/0/stored_dicom/get_slice/${this.plane.name}/${this.slice_number}`)
+            postSegmImage(image){
+                this.segm_ctx.drawImage(image, 0, 0, this.segm_canv.width, this.segm_canv.height)
+                this.savedImages++
+                if(this.savedImages==4){
+                    let dataUrl = this.segm_canv.toDataURL();
+                    let self = this
+                    $.post('/api/0/segmentation/push_segm_image/axial/' + this.prevSliceNumber, {
+                        imgBase64: dataUrl
+                    }, function (data, status) {
+                        console.log("Data: " + data + "\nStatus: " + status)
+                    })
+                    this.segm_ctx.clearRect(0, 0, this.segm_canv.width, this.segm_canv.height)
+                    let ctx = this.displayCanvas.getContext("2d")
+                    ctx.clearRect(0, 0, this.displayCanvas.width, this.displayCanvas.height)
+                    this.savedImages = 0
+                    this.drawNotSaved = false
+                    this.prevSliceNumber = this.sliceNumber
+                    if(this.drawEnabled)
+                        this.fetchSegmImage()
+                }
+            },
+            fetchSegmImage() {
+                if(this.z!=1) return
+                let self = this
+                fetch(`api/0/stored_dicom/get_segm_image/${this.planeName}/${this.sliceNumber}`)
                     .then((res) => {
                         if (!res.ok) {
                             console.warn(res)
@@ -286,12 +303,19 @@
                     })
                     .then(function (myBlob) {
                         let objectURL = URL.createObjectURL(myBlob)
-                        self.image_url = objectURL
-                        self.loadImage()
+                        self.loadSegmImage(objectURL)
                     })
                     .catch((err) => {
                         console.warn(err)
                     })
+            },
+            loadSegmImage(url) {
+                let img = new Image();
+                let self = this
+                img.onload = function () {
+                    self.segm_ctx.drawImage(img, 0, 0, self.segm_canv.width, self.segm_canv.height)
+                }
+                img.src = url
             }
         },
         watch: {
@@ -312,18 +336,32 @@
                 this.segm_ctx.fillStyle = this.color
             },
             sliceNumber() {
-                 if (this.drawEnabled && !this.display && this.z != 1) {
+                 if (this.z != 1 && this.drawNotSaved) {
                      let image = cloneCanvas(this.segm_canv)
                      segmentationBus.$emit('sendDrawtoSave', image)
                      this.segm_ctx.clearRect(0, 0, this.segm_canv.width, this.segm_canv.height)
+                     this.prevSliceNumber = this.sliceNumber
+                 }
+                 if(!this.drawNotSaved){
+                     this.prevSliceNumber = this.sliceNumber
+                     if(this.drawEnabled)
+                         this.segm_ctx.clearRect(0, 0, this.segm_canv.width, this.segm_canv.height)
+                         this.fetchSegmImage()
                  }
             },
             drawEnabled(){
-                if(!this.drawEnabled && this.z != 1){
+                if(!this.drawEnabled && this.z != 1 && this.drawNotSaved){
                      let image = cloneCanvas(this.segm_canv)
                      segmentationBus.$emit('sendDrawtoSave', image)
                      this.segm_ctx.clearRect(0, 0, this.segm_canv.width, this.segm_canv.height)
                 }
+                if(this.drawEnabled) {
+                    this.segm_ctx.clearRect(0, 0, this.segm_canv.width, this.segm_canv.height)
+                    this.fetchSegmImage()
+                }
+            },
+            drawNotSaved(){
+                segmentationBus.$emit('drawNotSaved', this.drawNotSaved)
             }
         }
     }
@@ -354,7 +392,8 @@
         data() {
             return {
                 'slice_number': 0,
-                'image_url': null,
+                'image_url': '',
+                'segm_image_url': '',
                 'canvas': null,
                 'display_canv': null,
                 'ctx': null,
@@ -398,7 +437,7 @@
             let context = this.planelines_canv.getContext("2d")
 
             slicesBus.$on('changeSlice', this.changeSlice)
-            slicesBus.$on('sliceChanged', this.displayPlaneLines)
+            slicesBus.$on('sliceChanged', this.updatePlaneLinesCoord)
 
             this.slice_number = Math.floor(this.plane.z / 2)
         },
@@ -454,7 +493,15 @@
                         console.warn(err)
                     })
             },
-            displayPlaneLines(planeName, sliceNum) {
+            loadImage() {
+                let img = new Image();
+                let self = this
+                img.onload = function () {
+                    self.ctx.drawImage(img, 0, 0, self.scaled_width, self.scaled_height)
+                }
+                img.src = this.image_url
+            },
+            updatePlaneLinesCoord(planeName, sliceNum) {
                 if (planeName == this.plane.name) return
                 let sliceNumInt = parseInt(sliceNum)
                 if (planeName == 'sagittal') {
@@ -471,14 +518,6 @@
                 else {
                     this.plane_line_y = this.plane.y - sliceNumInt - 1
                 }
-            },
-            loadImage() {
-                let img = new Image();
-                let self = this
-                img.onload = function () {
-                    self.ctx.drawImage(img, 0, 0, self.scaled_width, self.scaled_height)
-                }
-                img.src = this.image_url
             },
             drawPlaneLines() {
                 let x, y = 0
@@ -515,12 +554,19 @@
                 this.loadImage()
             },
             plane_line_x() {
-                this.drawPlaneLines()
+                if(!this.draw_enabled)
+                    this.drawPlaneLines()
             },
             plane_line_y() {
-                this.drawPlaneLines()
+                if(!this.draw_enabled)
+                    this.drawPlaneLines()
             },
             cursor() {
+            },
+            draw_enabled(){
+                if(!this.draw_enabled){
+                    this.drawPlaneLines()
+                }
             }
         }
     }
