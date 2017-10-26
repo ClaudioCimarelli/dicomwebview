@@ -8,6 +8,7 @@ import png
 import argparse
 import base64
 import itertools
+from enum import Enum
 
 
 app = Flask(__name__)
@@ -26,12 +27,10 @@ DICOM_PATH = 'DICOM_test/'
 SEGM_IMAGE_PATH = 'segmentation_images/'
 
 
-ALLOWED_EXTENSIONS = set(['png'])
-
-
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+class Planes(Enum):
+    AXIAL = 0
+    CORONAL = 1
+    SAGITTAL = 2
 
 
 @app.route('/')
@@ -65,6 +64,15 @@ def get_slice_sagittal(slice_n):
                      mimetype='image/png')
 
 
+@app.route('/api/0/stored_dicom/get_segm_image/<string:plane>/<int:slice_n>', methods=['GET'])
+def get_segm_image(plane, slice_n):
+    plane_n = getattr(Planes, plane.upper())
+    image = create_segm_image(plane_n, dims[plane_n] - slice_n - 1)
+    return send_file(image,
+                     attachment_filename= 'segm-img-' + plane + str(slice_n) + '.png',
+                     mimetype='image/png')
+
+
 @app.route('/api/0/segmentation/push_segm/axial/<int:slice_n>', methods=['POST'])
 def push_segm_axial(slice_n):
     files = request.values
@@ -79,13 +87,25 @@ def push_segm_axial(slice_n):
         pixels = rgba[2]
         pixel_array = np.fromiter(itertools.chain(*pixels), dtype=np.uint8).reshape(height, width, -1)
         pixel_array[..., 3] = np.where(pixel_array[..., 3] > 0, 127, 0)
-        segm_images[slice_n] = pixel_array
+        segm_images[dims[0] - slice_n - 1] = pixel_array
         img_path = os.path.join(APP_PATH, SEGM_IMAGE_PATH)
         img_path = os.path.join(img_path, 'segm-slice' + str(slice_n) + '.png')
         png.from_array(pixel_array, 'RGBA').save(img_path)
         return 'image saved'
     else:
         return 'no images'
+
+
+def create_segm_image(plane, slice_n):
+    image_pixel = segm_images.take(slice_n, plane)
+
+    png_file = StringIO.StringIO()
+
+    # Writing the PNG file
+    png.from_array(image_pixel, 'RGBA').save(png_file)
+    png_file.seek(0)
+
+    return png_file
 
 
 def create_image_slice(plane, slice_n):
@@ -99,8 +119,7 @@ def create_image_slice(plane, slice_n):
     image_pixel *= 255
 
     # Writing the PNG file
-    w = png.Writer(image_pixel.shape[1], image_pixel.shape[0], greyscale=True)
-    w.write(png_file, image_pixel)
+    png.from_array(image_pixel, 'L', info={'bitdepth':8}).save(png_file)
     png_file.seek(0)
 
     return png_file

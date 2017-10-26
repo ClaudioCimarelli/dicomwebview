@@ -273,6 +273,25 @@
                     this.segm_ctx.fill()
                     this.drawing = false
                 }
+            },
+            fetch_segm_image() {
+                var self = this
+                fetch(`api/0/stored_dicom/get_slice/${this.plane.name}/${this.slice_number}`)
+                    .then((res) => {
+                        if (!res.ok) {
+                            console.warn(res)
+                            return
+                        }
+                        return res.blob();
+                    })
+                    .then(function (myBlob) {
+                        let objectURL = URL.createObjectURL(myBlob)
+                        self.image_url = objectURL
+                        self.loadImage()
+                    })
+                    .catch((err) => {
+                        console.warn(err)
+                    })
             }
         },
         watch: {
