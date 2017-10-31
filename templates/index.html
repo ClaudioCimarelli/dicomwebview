@@ -58,6 +58,7 @@
             <component is="segmentation"
                        v-for="z in 5" :key="z"
                        :plane-name="plane.name"
+                       :plane-x="plane.x"
                        :scaled-height="scaled_height" :scaled-width="scaled_width"
                        :zoom="zoom" :z="z"
                        :display-canvas="display_canv"
@@ -184,7 +185,7 @@
     var segmentation_component = {
         template: '#segmentation-template',
         delimiters: ['${', '}'],
-        props: ['displayCanvas', 'drawEnabled', 'planeName', 'scaledWidth', 'scaledHeight',
+        props: ['displayCanvas', 'drawEnabled', 'planeName', 'planeX', 'scaledWidth', 'scaledHeight',
             'sliceNumber', 'zoom', 'z', 'color'],
         data() {
             return {
@@ -274,7 +275,18 @@
                 this.segm_ctx.drawImage(image, 0, 0, this.segm_canv.width, this.segm_canv.height)
                 this.savedImages++
                 if(this.savedImages==4){
-                    let dataUrl = this.segm_canv.toDataURL();
+                    let dataUrl
+                    if(this.segm_canv.width != this.planeX){
+                        let newCanvas = document.createElement('canvas')
+                        let context = newCanvas.getContext('2d')
+                        newCanvas.width = this.planeX
+                        newCanvas.height = this.segm_canv.height
+                        context.drawImage(this.segm_canv, 0, 0, newCanvas.width, newCanvas.height)
+                        dataUrl = newCanvas.toDataURL();
+                    }
+                    else
+                        dataUrl = this.segm_canv.toDataURL();
+
                     let self = this
                     $.post(`/api/0/segmentation/push_segm_image/${this.planeName}/${this.sliceNumber}`, {
                         imgBase64: dataUrl
