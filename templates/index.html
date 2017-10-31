@@ -45,7 +45,7 @@
                     style="position: absolute; left: 0; top: 0; z-index: 0;"
                     :height="scaled_height + 'px'"
                     :width="scaled_width + 'px'"
-                    v-show="draw_enabled || plane.name!='axial'" >
+                    v-show="draw_enabled" >
             </canvas>
             <canvas :id="plane.name + '-planeLines'"
                     style="position: absolute; left: 0; top: 0; z-index: 0;"
@@ -56,7 +56,6 @@
                     v-show="!draw_enabled">
             </canvas>
             <component is="segmentation"
-                       v-if="plane.name=='axial'"
                        v-for="z in 5" :key="z"
                        :plane-name="plane.name"
                        :scaled-height="scaled_height" :scaled-width="scaled_width"
@@ -67,16 +66,16 @@
             </component>
         </div>
         <span>slice number: ${slice_number}</span>
-        <input :id="plane.name + '-slider'" type="range" v-model="slice_number"
+        <input :id="plane.name + '-sliceSlider'" type="range" v-model="slice_number"
                min="0"
                :max="plane.z"/>
         <span>zoom: ${zoom}</span>
-        <input id="canvas_size-slider'" type="range" v-model="scaled_height"
+        <input :id="plane.name+'-zoomSlider'" type="range" v-model="scaled_height"
                :min="plane.y"
                :max="plane.y*3"
                :step="plane.y/2"/>
-        <input type="checkbox" id="enableDrawing-checkbox"
-               v-if="plane.name=='axial'" v-model="draw_enabled">
+        <input type="checkbox" :id="plane.name+'-enableDrawing'"
+               v-model="draw_enabled">
         <label for="enableDrawing-checkbox">drawing is enabled: ${draw_enabled}</label>
     </div>
 </template>
@@ -229,8 +228,8 @@
             this.segm_ctx.msImageSmoothingEnabled = false
 
             let self = this
-            segmentationBus.$on('scaling', function (image) {
-                if (self.display) {
+            segmentationBus.$on('scaling', function (planeName, image) {
+                if (self.display && self.planeName == planeName) {
                     let ctx = self.displayCanvas.getContext("2d")
                     ctx.drawImage(image, 0, 0, self.scaledWidth, self.scaledHeight)
                 }
@@ -240,8 +239,9 @@
                 segmentationBus.$on('sendDrawtoSave', this.postSegmImage)
             }
 
-            segmentationBus.$on('drawNotSaved', function(saved){
-                self.drawNotSaved = saved
+            segmentationBus.$on('drawNotSaved', function(planeName, saved){
+                if(self.planeName == planeName)
+                    self.drawNotSaved = saved
             })
         },
         beforeUpdate(){
@@ -269,13 +269,14 @@
                     this.drawing = false
                 }
             },
-            postSegmImage(image){
+            postSegmImage(planeName, image){
+                if(planeName != this.planeName) return
                 this.segm_ctx.drawImage(image, 0, 0, this.segm_canv.width, this.segm_canv.height)
                 this.savedImages++
                 if(this.savedImages==4){
                     let dataUrl = this.segm_canv.toDataURL();
                     let self = this
-                    $.post('/api/0/segmentation/push_segm_image/axial/' + this.prevSliceNumber, {
+                    $.post(`/api/0/segmentation/push_segm_image/${this.planeName}/${this.sliceNumber}`, {
                         imgBase64: dataUrl
                     }, function (data, status) {
                         console.log("Data: " + data + "\nStatus: " + status)
@@ -328,7 +329,7 @@
             zoomLevel() {
                 if (this.drawEnabled && !this.display) {
                     let image = cloneCanvas(this.segm_canv)
-                    segmentationBus.$emit('scaling', image)
+                    segmentationBus.$emit('scaling', this.planeName, image)
                 }
             },
             color() {
@@ -338,7 +339,7 @@
             sliceNumber() {
                  if (this.z != 1 && this.drawNotSaved) {
                      let image = cloneCanvas(this.segm_canv)
-                     segmentationBus.$emit('sendDrawtoSave', image)
+                     segmentationBus.$emit('sendDrawtoSave', this.planeName, image)
                      this.segm_ctx.clearRect(0, 0, this.segm_canv.width, this.segm_canv.height)
                      this.prevSliceNumber = this.sliceNumber
                  }
@@ -348,13 +349,12 @@
                          this.segm_ctx.clearRect(0, 0, this.segm_canv.width, this.segm_canv.height)
                          this.fetchSegmImage()
                      }
-
                  }
             },
             drawEnabled(){
                 if(!this.drawEnabled && this.z != 1 && this.drawNotSaved){
                      let image = cloneCanvas(this.segm_canv)
-                     segmentationBus.$emit('sendDrawtoSave', image)
+                     segmentationBus.$emit('sendDrawtoSave', this.planeName, image)
                      this.segm_ctx.clearRect(0, 0, this.segm_canv.width, this.segm_canv.height)
                 }
                 if(this.drawEnabled) {
@@ -363,7 +363,7 @@
                 }
             },
             drawNotSaved(){
-                segmentationBus.$emit('drawNotSaved', this.drawNotSaved)
+                segmentationBus.$emit('drawNotSaved', this.planeName, this.drawNotSaved)
             }
         }
     }

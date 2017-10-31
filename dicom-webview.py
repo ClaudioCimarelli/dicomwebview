@@ -68,13 +68,16 @@ def get_segm_image(plane, slice_n):
                      mimetype='image/png')
 
 
-@app.route('/api/0/segmentation/push_segm_image/axial/<int:slice_n>', methods=['POST'])
-def push_segm_axial(slice_n):
+@app.route('/api/0/segmentation/push_segm_image/<string:plane>/<int:slice_n>', methods=['POST'])
+def push_segm(plane, slice_n):
     files = request.values
     if files.__len__()>0:
+        plane_n = getattr(Planes, plane.upper())
+        if not issubclass(type(plane_n), int):
+            plane_n = plane_n.value
         img_string = files['imgBase64']
         img_string = img_string.replace("data:image/png;base64,", '')
-        dec_image = base64.decodestring(img_string) #decode base64 image to binary format
+        dec_image = base64.decodestring(img_string) # decode base64 image to binary format
         r = png.Reader(bytes=dec_image)
         rgba = r.asRGBA()
         width = rgba[0]
@@ -86,11 +89,17 @@ def push_segm_axial(slice_n):
         pixel_array[..., 3] = np.where(pixel_array[..., 3] > 0, 127, 0)
 
         # maintaining the same order of the DICOM images, from upper body to lower in the array
-        segm_images[dims[0] - slice_n - 1] = pixel_array
-        img_path = os.path.join(APP_PATH, SEGM_IMAGE_PATH)
-        img_path = os.path.join(img_path, 'segm-slice' + str(slice_n).zfill(4) + '.png')
-        png.from_array(pixel_array, 'RGBA').save(img_path)
-        return 'image saved as: ' + 'segm-slice' + str(slice_n).zfill(4) + '.png'
+        ind = [slice(None)] * 4
+        ind[plane_n] = dims[plane_n] - slice_n - 1
+        segm_images[tuple(ind)] = pixel_array
+
+        # for now save only if axial image
+        if plane_n == 0:
+            img_path = os.path.join(APP_PATH, SEGM_IMAGE_PATH)
+            img_path = os.path.join(img_path, 'segm-slice' + str(slice_n).zfill(4) + '.png')
+            png.from_array(pixel_array, 'RGBA').save(img_path)
+
+        return 'image saved'
     else:
         return 'no image received'
 
@@ -153,7 +162,6 @@ if __name__ == '__main__':
                 slice_n = int(''.join(list(filename)[-8:-4]))
 
                 segm_images[dims[0] - slice_n - 1] = pixel_array
-
 
     pixelSpacing = datap["voxelsize_mm"]
     pixelSpacing[0] = pixelSpacing[0] if pixelSpacing[0] != 0 else 1
