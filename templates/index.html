@@ -344,9 +344,11 @@
                  }
                  if(!this.drawNotSaved){
                      this.prevSliceNumber = this.sliceNumber
-                     if(this.drawEnabled)
+                     if(this.drawEnabled){
                          this.segm_ctx.clearRect(0, 0, this.segm_canv.width, this.segm_canv.height)
                          this.fetchSegmImage()
+                     }
+
                  }
             },
             drawEnabled(){

@@ -48,7 +48,7 @@ def index():
 @app.route('/api/0/stored_dicom/get_slice/<string:plane>/<int:slice_n>', methods=['GET'])
 def get_slice(plane, slice_n):
     plane_n = getattr(Planes, plane.upper())
-    plane_n = plane_n.value
+    #plane_n = plane_n.value
     # import pdb;
     # pdb.set_trace()
     image = create_image_slice(plane_n, dims[plane_n] - slice_n -1)
@@ -60,7 +60,7 @@ def get_slice(plane, slice_n):
 @app.route('/api/0/stored_dicom/get_segm_image/<string:plane>/<int:slice_n>', methods=['GET'])
 def get_segm_image(plane, slice_n):
     plane_n = getattr(Planes, plane.upper())
-    plane_n = plane_n.value
+    #plane_n = plane_n.value
     image = create_segm_image(plane_n, dims[plane_n] - slice_n - 1)
     return send_file(image,
                      attachment_filename= 'segm-img-' + plane + str(slice_n) + '.png',
@@ -139,6 +139,20 @@ if __name__ == '__main__':
     images = datap["data3d"]
     dims = images.shape
     segm_images = np.empty(shape=[dims[0], dims[1], dims[2], 4], dtype=np.uint8)
+
+    for dirName, subdirList, fileList in os.walk(os.path.join(APP_PATH, SEGM_IMAGE_PATH)):
+        for filename in fileList:
+            if ".png" in filename.lower():
+                r = png.Reader(filename=os.path.join(dirName, filename))
+                rgba = r.asRGBA()
+                width = rgba[0]
+                height = rgba[1]
+                pixels = rgba[2]
+                pixel_array = np.fromiter(itertools.chain(*pixels), dtype=np.uint8).reshape(height, width, -1)
+                slice_n = int(''.join(list(filename)[-8:-4]))
+
+                segm_images[dims[0] - slice_n - 1] = pixel_array
+
 
     pixelSpacing = datap["voxelsize_mm"]
     pixelSpacing[0] = pixelSpacing[0] if pixelSpacing[0] != 0 else 1
