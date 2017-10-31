@@ -2,11 +2,9 @@
 
 # Install
 
-        conda create -n dicomwebview python=3
+        conda create -c mjirik -c conda-forge -n dicomwebview python=3 pypng flask io3d
+        
         activate dicomwebview
-
-
-        conda install -c mjirik pypng flask io3d
 
 in python version < 3.4  install enum:
 
