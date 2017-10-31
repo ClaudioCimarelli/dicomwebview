@@ -48,9 +48,9 @@ def index():
 @app.route('/api/0/stored_dicom/get_slice/<string:plane>/<int:slice_n>', methods=['GET'])
 def get_slice(plane, slice_n):
     plane_n = getattr(Planes, plane.upper())
-    #plane_n = plane_n.value
-    # import pdb;
-    # pdb.set_trace()
+    if not issubclass(type(plane_n), int):
+        plane_n = plane_n.value
+
     image = create_image_slice(plane_n, dims[plane_n] - slice_n -1)
     return send_file(image,
                      attachment_filename=plane + str(slice_n) + '.png',
@@ -60,7 +60,8 @@ def get_slice(plane, slice_n):
 @app.route('/api/0/stored_dicom/get_segm_image/<string:plane>/<int:slice_n>', methods=['GET'])
 def get_segm_image(plane, slice_n):
     plane_n = getattr(Planes, plane.upper())
-    #plane_n = plane_n.value
+    if not issubclass(type(plane_n), int):
+        plane_n = plane_n.value
     image = create_segm_image(plane_n, dims[plane_n] - slice_n - 1)
     return send_file(image,
                      attachment_filename= 'segm-img-' + plane + str(slice_n) + '.png',
