@@ -452,6 +452,11 @@
 
             slicesBus.$on('changeSlice', this.changeSlice)
             slicesBus.$on('sliceChanged', this.updatePlaneLinesCoord)
+            let self = this
+            slicesBus.$on('drawEnabled', function(planeName){
+                if(self.plane.name!=planeName)
+                    self.draw_enabled = false
+            })
 
             this.slice_number = Math.floor(this.plane.z / 2)
         },
@@ -580,6 +585,9 @@
             draw_enabled(){
                 if(!this.draw_enabled){
                     this.drawPlaneLines()
+                }
+                if(this.draw_enabled){
+                    slicesBus.$emit('drawEnabled', this.plane.name)
                 }
             }
         }
