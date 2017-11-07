@@ -145,17 +145,17 @@
                     {
                         'colorName': "yellow",
                         'label': "spleen",
-                        'colorRGBA': 'rgb(255, 200, 0)'
+                        'colorRGBA': 'rgba(255, 200, 0, 1)'
                     },
                     {
                         'colorName': "red",
                         'label': "heart",
-                        'colorRGBA': 'rgb(255, 0, 0)'
+                        'colorRGBA': 'rgba(255, 0, 0, 1)'
                     },
                     {
                         'colorName': "green",
                         'label': "liver",
-                        'colorRGBA': 'rgb(0, 255, 0)'
+                        'colorRGBA': 'rgba(0, 255, 0, 1)'
                     },
                     {
                         'colorName': "transparent",
@@ -210,7 +210,8 @@
                 'drawing': false,
                 'savedImages': 0,
                 'prevSliceNumber': this.sliceNumber,
-                'drawNotSaved' : false
+                'drawNotSaved' : false,
+                'tempCanv': null
             }
         },
         computed: {
@@ -269,6 +270,7 @@
             },
             startDraw() {
                 if (this.colorPicked) {
+                    this.tempCanv = cloneCanvas(this.segm_canv)
                     this.segm_ctx.beginPath()
                     this.segm_ctx.moveTo(this.cursor.x, this.cursor.y)
                     this.drawing = true
@@ -278,6 +280,18 @@
             endDraw() {
                 if (this.colorPicked) {
                     this.segm_ctx.fill()
+                    if(this.color != 'rgba(255, 255, 255, 1)'){
+                        let image = cloneCanvas(this.segm_canv)
+                        this.segm_ctx.clearRect(0, 0, this.segm_canv.width, this.segm_canv.height)
+                        this.segm_ctx.globalAlpha = 1
+                        this.segm_ctx.drawImage(this.tempCanv, 0, 0, this.segm_canv.width, this.segm_canv.height)
+                        this.segm_ctx.drawImage(image, 0, 0, this.segm_canv.width, this.segm_canv.height)
+                        image = cloneCanvas(this.segm_canv)
+                        this.segm_ctx.globalAlpha = 0.8
+                        this.segm_ctx.clearRect(0, 0, this.segm_canv.width, this.segm_canv.height)
+                        this.segm_ctx.drawImage(image, 0, 0, this.segm_canv.width, this.segm_canv.height)
+                        this.segm_ctx.globalAlpha = 1
+                    }
                     this.drawing = false
                 }
             },
