@@ -67,8 +67,8 @@
                        :slice-number="slice_number">
             </component>
         </div>
-        <span>slice number: ${slice_number}</span>
-        <input :id="plane.name + '-sliceSlider'" type="range" v-model="slice_number"
+        <span>slice number:<input :id="plane.name + '-sliceNumberInput'" type="number" v-model="slice_number"/></span>
+        <input :id="plane.name + '-sliceNumberSlider'" type="range" v-model="slice_number"
                min="0"
                :max="plane.z"/>
         <span>zoom: ${zoom}</span>
