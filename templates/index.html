@@ -96,16 +96,16 @@
     <div>
         <template v-for="(color, index) in colors">
             <input type="radio" :id="color.colorName+'-radio'"
-                   :value="color.colorName" v-model="pickedColor" :key="index">
+                   :value="color.colorName" v-model="pickedColorName" :key="index">
             <component is="colorElem" :color="color" :key="index"></component>
             <span :key="index">${color.label}</span>
-            <button @click="removeColor(index)" :key="index">X</button>
+            <button v-if="color.colorName!='transparent'" @click="removeColor(index)" :key="index">DEL</button>
         </template>
     </div>
 </template>
 
 <template id="color-template">
-    <canvas :id="color.colorName+'-canv'" width="10px" height="10px"></canvas>
+    <canvas :id="color.colorName+'-canv'" width="10px" height="10px" style="border:1px solid #000000;"></canvas>
 </template>
 
 <script>
@@ -124,12 +124,12 @@
         mounted() {
             this.canv = document.getElementById(this.color.colorName + "-canv")
             this.ctx = this.canv.getContext("2d")
-            this.ctx.fillStyle = this.color.colorName
+            this.ctx.fillStyle = this.color.colorRGBA
             this.ctx.fillRect(0, 0, 10, 10)
         },
         watch: {
             color() {
-                this.ctx.fillStyle = this.color.colorName
+                this.ctx.fillStyle = this.color.colorRGBA
                 this.ctx.fillRect(0, 0, 10, 10)
             }
         }
@@ -145,20 +145,26 @@
                     {
                         'colorName': "yellow",
                         'label': "spleen",
-                        'colorRGB': null
+                        'colorRGBA': 'rgb(255, 200, 0)'
                     },
                     {
                         'colorName': "red",
                         'label': "heart",
-                        'colorRGB': null
+                        'colorRGBA': 'rgb(255, 0, 0)'
                     },
                     {
                         'colorName': "green",
                         'label': "liver",
-                        'colorRGB': null
+                        'colorRGBA': 'rgb(0, 255, 0)'
+                    },
+                    {
+                        'colorName': "transparent",
+                        'label': "erase color",
+                        'colorRGBA': 'rgba(255, 255, 255, 1)'
                     }
                 ],
-                'pickedColor': ""
+                'pickedColorName': '',
+                'pickedColorRGBA': ''
             }
         },
         components: {
@@ -168,15 +174,20 @@
             addNewColor() {
             },
             removeColor(index) {
-                if (this.colors[index].colorName == this.pickedColor) {
-                    this.pickedColor = ''
+                if (this.colors[index].colorName == this.pickedColorName) {
+                    this.pickedColorName = ''
+                    this.pickedColorRGBA = ''
                 }
                 this.colors.splice(index, 1)
             }
         },
         watch: {
-            pickedColor() {
-                this.$emit('colorchange', this.pickedColor)
+            pickedColorName() {
+                let self = this
+                this.pickedColorRGBA = $.grep(this.colors,  function (color) {
+                    return color.colorName == self.pickedColorName
+                })[0].colorRGBA
+                this.$emit('colorchange', this.pickedColorRGBA)
             }
         }
     }
@@ -223,7 +234,6 @@
             this.segm_canv.style.imageRendering = 'pixelated'
 
             this.segm_ctx = this.segm_canv.getContext("2d")
-            this.segm_ctx.globalAlpha = 0.7
             this.segm_ctx.imageSmoothingEnabled = false
             this.segm_ctx.mozImageSmoothingEnabled = false
             this.segm_ctx.webkitImageSmoothingEnabled = false
@@ -326,6 +336,7 @@
             loadSegmImage(url) {
                 let img = new Image();
                 let self = this
+                this.segm_ctx.globalCompositeOperation="source-over"
                 img.onload = function () {
                     self.segm_ctx.drawImage(img, 0, 0, self.segm_canv.width, self.segm_canv.height)
                 }
@@ -346,6 +357,10 @@
                 }
             },
             color() {
+                if(this.color =='rgba(255, 255, 255, 1)')
+                    this.segm_ctx.globalCompositeOperation="destination-out"
+                else
+                    this.segm_ctx.globalCompositeOperation="source-over"
                 this.segm_ctx.strokeStyle = this.color
                 this.segm_ctx.fillStyle = this.color
             },
@@ -446,7 +461,6 @@
             ctx.mozImageSmoothingEnabled = false
             ctx.webkitImageSmoothingEnabled = false
             ctx.msImageSmoothingEnabled = false
-            ctx.globalAlpha = 0.5
 
             this.planelines_canv = document.getElementById(this.plane.name + '-planeLines')
             let context = this.planelines_canv.getContext("2d")
@@ -609,8 +623,8 @@
             }
         },
         methods: {
-            changeColor(colorName) {
-                this.color = colorName
+            changeColor(color) {
+                this.color = color
             },
             saveSegmentation(){
                 let self = this
