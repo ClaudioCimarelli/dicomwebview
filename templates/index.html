@@ -22,6 +22,7 @@
             <input id="canvas_box_size-slider'" type="range" v-model="canvas_box_size"
                    min="300"
                    max="1200"/>
+            <button id="saveSegmentation" @click="saveSegmentation"> Save Segmentation Permanently </button>
             <component is="colorSelector" @colorchange="changeColor"></component>
         </div>
         <div id="slices">
@@ -610,6 +611,13 @@
         methods: {
             changeColor(colorName) {
                 this.color = colorName
+            },
+            saveSegmentation(){
+                let self = this
+                $.post('/api/0/segmentation/saveToDisk', {},
+                    function (data, status) {
+                    alert(status + ": "+ data)
+                })
             }
         }
 

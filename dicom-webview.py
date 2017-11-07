@@ -13,8 +13,7 @@ import sys
 if sys.version_info.major == 2:
     import StringIO
 else:
-    from io import StringIO
-
+    from io import BytesIO
 
 app = Flask(__name__)
 
@@ -26,6 +25,7 @@ pixelSpacing = np.empty(1)
 max_intensity = 255
 min_intensity = 0
 segm_images = np.empty(1)
+segm_images_index = [[], [], []]
 
 APP_PATH = os.path.dirname(__file__)
 DICOM_PATH = 'DICOM_test/'
@@ -51,7 +51,7 @@ def get_slice(plane, slice_n):
     if not issubclass(type(plane_n), int):
         plane_n = plane_n.value
 
-    image = create_image_slice(plane_n, dims[plane_n] - slice_n -1)
+    image = create_image_slice(plane_n, dims[plane_n] - slice_n - 1)
     return send_file(image,
                      attachment_filename=plane + str(slice_n) + '.png',
                      mimetype='image/png')
@@ -64,26 +64,28 @@ def get_segm_image(plane, slice_n):
         plane_n = plane_n.value
     image = create_segm_image(plane_n, dims[plane_n] - slice_n - 1)
     return send_file(image,
-                     attachment_filename= 'segm-img-' + plane + str(slice_n) + '.png',
+                     attachment_filename='segm-img-' + plane + str(slice_n) + '.png',
                      mimetype='image/png')
 
 
 @app.route('/api/0/segmentation/push_segm_image/<string:plane>/<int:slice_n>', methods=['POST'])
 def push_segm(plane, slice_n):
     files = request.values
-    if files.__len__()>0:
+    if files.__len__() > 0:
         plane_n = getattr(Planes, plane.upper())
         if not issubclass(type(plane_n), int):
             plane_n = plane_n.value
         img_string = files['imgBase64']
         img_string = img_string.replace("data:image/png;base64,", '')
-        dec_image = base64.decodestring(img_string) # decode base64 image to binary format
+        dec_image = base64.urlsafe_b64decode(img_string)  # decode base64 image to binary format
         r = png.Reader(bytes=dec_image)
         rgba = r.asRGBA()
         width = rgba[0]
         height = rgba[1]
         pixels = rgba[2]
-        pixel_array = np.fromiter(itertools.chain(*pixels), dtype=np.uint8).reshape(height, width, -1)
+        planes = rgba[3]['planes']
+        pixel_array = np.fromiter(itertools.chain(*pixels), count=width * height * planes, dtype=np.uint8).reshape(
+            height, width, -1)
 
         # modify opacity to 0.5 or 127
         pixel_array[..., 3] = np.where(pixel_array[..., 3] > 0, 127, 0)
@@ -93,21 +95,41 @@ def push_segm(plane, slice_n):
         ind[plane_n] = dims[plane_n] - slice_n - 1
         segm_images[tuple(ind)] = pixel_array
 
-        # for now save only if axial image
-        if plane_n == 0:
-            img_path = os.path.join(APP_PATH, SEGM_IMAGE_PATH)
-            img_path = os.path.join(img_path, 'segm-slice' + str(slice_n).zfill(4) + '.png')
-            png.from_array(pixel_array, 'RGBA').save(img_path)
+        # indexing modified images
+        segm_images_index[plane_n].append(dims[plane_n] - slice_n - 1)
 
-        return 'image saved'
+        return 'image pushed in memory array'
     else:
         return 'no image received'
+
+
+@app.route('/api/0/segmentation/saveToDisk', methods=['POST'])
+def save_segm_image_disk():
+    # save all images on axial plane
+    count = 0
+    for plane in range(3):
+        img_path = os.path.join(APP_PATH, SEGM_IMAGE_PATH)
+        iterable = (save_image(i, plane, img_path) for i in segm_images_index[plane])
+        count += len(segm_images_index[plane])
+        np.fromiter(iterable, int, count=len(segm_images_index[plane]))
+        segm_images_index[plane] = []
+    return "saved " + str(count) + " images"
+
+
+def save_image(i, plane, path):
+    plane_name = Planes(plane).name.lower()
+    img_path = os.path.join(path, plane_name + '-segm-' + str(i).zfill(4) + '.png')
+    png.from_array(segm_images.take(i, plane), 'RGBA').save(img_path)
+    return 1
 
 
 def create_segm_image(plane, slice_n):
     image_pixel = segm_images.take(slice_n, plane)
 
-    png_file = StringIO.StringIO()
+    if sys.version_info.major == 2:
+        png_file = StringIO.StringIO()
+    else:
+        png_file = BytesIO()
 
     # Writing the PNG file
     png.from_array(image_pixel, 'RGBA').save(png_file)
@@ -119,7 +141,10 @@ def create_segm_image(plane, slice_n):
 def create_image_slice(plane, slice_n):
     image_pixel = images.take(slice_n, plane).astype(float)
 
-    png_file = StringIO.StringIO()
+    if sys.version_info.major == 2:
+        png_file = StringIO.StringIO()
+    else:
+        png_file = BytesIO()
 
     # map intensity to the range [0, 255]
     image_pixel -= min_intensity
@@ -158,10 +183,16 @@ if __name__ == '__main__':
                 width = rgba[0]
                 height = rgba[1]
                 pixels = rgba[2]
-                pixel_array = np.fromiter(itertools.chain(*pixels), dtype=np.uint8).reshape(height, width, -1)
+                planes = rgba[3]['planes']
+                pixel_array = np.fromiter(itertools.chain(*pixels), count=width * height * planes,
+                                          dtype=np.uint8).reshape(height, width, -1)
                 slice_n = int(''.join(list(filename)[-8:-4]))
 
-                segm_images[dims[0] - slice_n - 1] = pixel_array
+                plane_n = Planes[filename.split('-')[0].upper()].value
+                # maintaining the same order of the DICOM images, from upper body to lower in the array
+                ind = [slice(None)] * 4
+                ind[plane_n] = slice_n
+                segm_images[tuple(ind)] = pixel_array
 
     pixelSpacing = datap["voxelsize_mm"]
     pixelSpacing[0] = pixelSpacing[0] if pixelSpacing[0] != 0 else 1
