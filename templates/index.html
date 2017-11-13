@@ -45,8 +45,7 @@
             <canvas :id="'display-segm-'+plane.name"
                     style="position: absolute; left: 0; top: 0; z-index: 0;"
                     :height="scaled_height + 'px'"
-                    :width="scaled_width + 'px'"
-                    v-show="draw_enabled" >
+                    :width="scaled_width + 'px'">
             </canvas>
             <canvas :id="plane.name + '-planeLines'"
                     style="position: absolute; left: 0; top: 0; z-index: 0;"
@@ -287,7 +286,7 @@
                         this.segm_ctx.drawImage(this.tempCanv, 0, 0, this.segm_canv.width, this.segm_canv.height)
                         this.segm_ctx.drawImage(image, 0, 0, this.segm_canv.width, this.segm_canv.height)
                         image = cloneCanvas(this.segm_canv)
-                        this.segm_ctx.globalAlpha = 0.8
+                        this.segm_ctx.globalAlpha = 0.7
                         this.segm_ctx.clearRect(0, 0, this.segm_canv.width, this.segm_canv.height)
                         this.segm_ctx.drawImage(image, 0, 0, this.segm_canv.width, this.segm_canv.height)
                         this.segm_ctx.globalAlpha = 1
@@ -313,7 +312,7 @@
                         dataUrl = this.segm_canv.toDataURL();
 
                     let self = this
-                    $.post(`/api/0/segmentation/push_segm_image/${this.planeName}/${this.sliceNumber}`, {
+                    $.post(`/api/0/segmentation/push_segm_image/${this.planeName}/${this.prevSliceNumber}`, {
                         imgBase64: dataUrl
                     }, function (data, status) {
                         console.log("Data: " + data + "\nStatus: " + status)
@@ -353,6 +352,10 @@
                 this.segm_ctx.globalCompositeOperation="source-over"
                 img.onload = function () {
                     self.segm_ctx.drawImage(img, 0, 0, self.segm_canv.width, self.segm_canv.height)
+                    if(self.color =='rgba(255, 255, 255, 1)')
+                        self.segm_ctx.globalCompositeOperation="destination-out"
+                    else
+                        self.segm_ctx.globalCompositeOperation="source-over"
                 }
                 img.src = url
             }
