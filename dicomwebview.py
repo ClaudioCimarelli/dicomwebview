@@ -161,6 +161,7 @@ def create_image_slice(plane, slice_n):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--datapath", help="input image path", default=None)
+    parser.add_argument("-sn", "--seriesnumber", help="series number", default=None)
     args = parser.parse_args()
 
     if args.datapath is None:
@@ -169,7 +170,7 @@ if __name__ == '__main__':
         path_dicom = args.datapath
 
     dr = io3d.DataReader()
-    datap = dr.Get3DData(path_dicom, dataplus_format=True)
+    datap = dr.Get3DData(path_dicom, dataplus_format=True, series_number=args.seriesnumber)
 
     images = datap["data3d"]
     dims = images.shape
