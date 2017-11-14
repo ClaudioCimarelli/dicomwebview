@@ -36,7 +36,7 @@
 <template id="slice-templ">
     <div :id="plane.name" class="slice-box">
 
-        <div class="canvas-box" :style="{ width: canvas_box_size + 'px', height: canvas_box_size + 'px'}">
+        <div class="canvas-box" :style="{ width: plane.x + 'px', height: this.plane.y/this.plane.ratio + 'px'}">
             <canvas :id="plane.name + '-image'"
                     style="position: absolute; left: 0; top: 0; z-index: 0;"
                     :height="scaled_height + 'px'"
@@ -58,7 +58,7 @@
             <component is="segmentation"
                        v-for="z in 5" :key="z"
                        :plane-name="plane.name"
-                       :plane-x="plane.x"
+                       :plane-x="plane.x" :plane-y="plane.y"
                        :scaled-height="scaled_height" :scaled-width="scaled_width"
                        :zoom="zoom" :z="z"
                        :display-canvas="display_canv"
@@ -71,10 +71,10 @@
                min="0"
                :max="plane.z"/>
         <span>zoom: ${zoom}</span>
-        <input :id="plane.name+'-zoomSlider'" type="range" v-model="scaled_height"
-               :min="plane.y"
-               :max="plane.y*3"
-               :step="plane.y/2"/>
+        <input :id="plane.name+'-zoomSlider'" type="range" v-model="scaled_width"
+               :min="plane.x"
+               :max="plane.x*3"
+               :step="plane.x/2"/>
         <input type="checkbox" :id="plane.name+'-enableDrawing'"
                v-model="draw_enabled">
         <label for="enableDrawing-checkbox">drawing is enabled: ${draw_enabled}</label>
@@ -196,7 +196,7 @@
     var segmentation_component = {
         template: '#segmentation-template',
         delimiters: ['${', '}'],
-        props: ['displayCanvas', 'drawEnabled', 'planeName', 'planeX', 'scaledWidth', 'scaledHeight',
+        props: ['displayCanvas', 'drawEnabled', 'planeName', 'planeX', 'planeY', 'scaledWidth', 'scaledHeight',
             'sliceNumber', 'zoom', 'z', 'color'],
         data() {
             return {
@@ -299,12 +299,12 @@
                 this.segm_ctx.drawImage(image, 0, 0, this.segm_canv.width, this.segm_canv.height)
                 this.savedImages++
                 if(this.savedImages==4){
-                    let dataUrl
-                    if(this.segm_canv.width != this.planeX){
+                    let dataUrl = ""
+                    if(this.segm_canv.width != this.planeX || this.segm_canv.height != this.planeY){
                         let newCanvas = document.createElement('canvas')
                         let context = newCanvas.getContext('2d')
                         newCanvas.width = this.planeX
-                        newCanvas.height = this.segm_canv.height
+                        newCanvas.height = this.planeY
                         context.drawImage(this.segm_canv, 0, 0, newCanvas.width, newCanvas.height)
                         dataUrl = newCanvas.toDataURL();
                     }
@@ -444,7 +444,7 @@
                 'canvas': null,
                 'display_canv': null,
                 'ctx': null,
-                'scaled_height': this.plane.y,
+                'scaled_width': this.plane.x,
                 'draw_enabled': false,
                 'cursor': {
                     'x': 0,
@@ -460,11 +460,10 @@
         },
         computed: {
             zoom() {
-                return this.scaled_height / this.plane.y
+                return this.scaled_width / this.plane.x
             },
-            scaled_width() {
-                let scaled_width = Math.floor(this.plane.x * this.plane.ratio * this.zoom)
-                return scaled_width
+            scaled_height() {
+                return Math.floor(this.plane.y/this.plane.ratio * this.zoom)
             }
         },
         mounted() {
@@ -503,8 +502,8 @@
                 }
             },
             getSlice() {
-                let x = Math.floor(this.cursor.x / (this.zoom * this.plane.ratio))
-                let y = this.plane.y - Math.floor(this.cursor.y / (this.zoom)) - 1
+                let x = Math.floor(this.cursor.x / (this.zoom))
+                let y = this.plane.y - Math.floor(this.cursor.y*this.plane.ratio /this.zoom) - 1
                 slicesBus.$emit('changeSlice', this.plane.name, x, y)
             },
             changeSlice(planeName, x, y) {
@@ -578,7 +577,7 @@
                 context.strokeStyle = "yellow"
                 context.beginPath()
 
-                x = this.plane_line_x * (this.zoom * this.plane.ratio)
+                x = this.plane_line_x * this.zoom
                 xTo = x
                 yTo = this.scaled_height
 
@@ -586,7 +585,7 @@
                 context.lineTo(xTo, yTo)
                 context.stroke()
 
-                y = this.plane_line_y * this.zoom
+                y = this.plane_line_y/ this.plane.ratio * this.zoom
                 yTo = y
                 x = 0
                 xTo = this.scaled_width
@@ -635,7 +634,7 @@
         },
         data() {
             return {
-                'canvas_box_size': 700,
+                'canvas_box_size': 512,
                 'color': ''
             }
         },
@@ -660,12 +659,12 @@
         data: {
             planes: [
                 {
-                    id: 0,
-                    name: 'axial',
-                    z: {{ session['dimension'][0] - 1}},
+                    id: 1,
+                    name: 'coronal',
+                    z: {{ session['dimension'][1] - 1}},
                     x: {{ session['dimension'][1]}},
-                    y: {{ session['dimension'][2]}},
-                    ratio: {{ session['ratios'][0] }}
+                    y: {{ session['dimension'][0]}},
+                    ratio: {{ session['ratios'][1] }}
                 },
                 {
                     id: 2,
@@ -677,12 +676,12 @@
 
                 },
                 {
-                    id: 1,
-                    name: 'coronal',
-                    z: {{ session['dimension'][1] - 1}},
+                    id: 0,
+                    name: 'axial',
+                    z: {{ session['dimension'][0] - 1}},
                     x: {{ session['dimension'][1]}},
-                    y: {{ session['dimension'][0]}},
-                    ratio: {{ session['ratios'][1] }}
+                    y: {{ session['dimension'][2]}},
+                    ratio: {{ session['ratios'][0] }}
                 }
             ]
         },

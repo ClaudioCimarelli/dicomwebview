@@ -4,7 +4,7 @@
 
         conda create -c mjirik -c conda-forge -n dicomwebview python=3 pypng flask io3d
         
-        activate dicomwebview
+        source activate dicomwebview
 
 in python version < 3.4  install enum:
 
@@ -12,4 +12,4 @@ in python version < 3.4  install enum:
 
 # Run
 
-        python dicom-webview.py -i ~/projects/io3d/sample_data/jatra_5mm/
+        python dicomwebview.py -i ~/projects/io3d/sample_data/jatra_5mm/

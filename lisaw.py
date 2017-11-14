@@ -17,8 +17,7 @@ import numpy as np
 
 import io3d
 
-from dicomwebview import
-
+from dicomwebview import *
 
 
 def main():

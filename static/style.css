@@ -12,7 +12,7 @@
 
 .canvas-box{
     float: left;
-    overflow:scroll;
+    overflow:hidden;
     background-color: gray;
     position: relative;
 }
