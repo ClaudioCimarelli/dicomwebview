@@ -52,7 +52,8 @@
                     :height="scaled_height + 'px'"
                     :width="scaled_width + 'px'"
                     @mousemove="get_coordinates"
-                    @click="getSlice"
+                    @mousedown="switchingslice = true"
+                    @mouseup="switchingslice = false"
                     v-show="!draw_enabled">
             </canvas>
             <component is="segmentation"
@@ -454,7 +455,8 @@
                 },
                 'planelines_canv': null,
                 'plane_line_x': 0,
-                'plane_line_y': 0
+                'plane_line_y': 0,
+                'switchingslice': false
             }
         },
         components: {
@@ -501,6 +503,9 @@
                 this.cursor = {
                     x: event.layerX,
                     y: event.layerY
+                }
+                if(this.switchingslice){
+                    this.getSlice()
                 }
             },
             getSlice() {
