@@ -152,6 +152,8 @@ def create_image_slice(plane, slice_n):
     image_pixel *= 255
 
     # Writing the PNG file
+    if plane == 1:
+        image_pixel[...] = np.fliplr(image_pixel)
     png.from_array(image_pixel, 'L', info={'bitdepth': 8}).save(png_file)
     png_file.seek(0)
 

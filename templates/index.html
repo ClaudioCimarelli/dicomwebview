@@ -66,18 +66,20 @@
                        :slice-number="slice_number">
             </component>
         </div>
-        <span>slice number:<input :id="plane.name + '-sliceNumberInput'" type="number" v-model="slice_number"/></span>
-        <input :id="plane.name + '-sliceNumberSlider'" type="range" v-model="slice_number"
-               min="0"
-               :max="plane.z"/>
-        <span>zoom: ${zoom}</span>
-        <input :id="plane.name+'-zoomSlider'" type="range" v-model="scaled_width"
-               :min="plane.x"
-               :max="plane.x*3"
-               :step="plane.x/2"/>
-        <input type="checkbox" :id="plane.name+'-enableDrawing'"
-               v-model="draw_enabled">
-        <label for="enableDrawing-checkbox">drawing is enabled: ${draw_enabled}</label>
+        <div v-show="false" class="slice-box">
+            <span>slice number:<input :id="plane.name + '-sliceNumberInput'" type="number" v-model="slice_number"/></span>
+            <input :id="plane.name + '-sliceNumberSlider'" type="range" v-model="slice_number"
+                   min="0"
+                   :max="plane.z"/>
+            <span>zoom: ${zoom}</span>
+            <input :id="plane.name+'-zoomSlider'" type="range" v-model="scaled_width"
+                   :min="plane.x"
+                   :max="plane.x*3"
+                   :step="plane.x/2"/>
+            <input type="checkbox" :id="plane.name+'-enableDrawing'"
+                   v-model="draw_enabled">
+            <label for="enableDrawing-checkbox">drawing is enabled: ${draw_enabled}</label>
+        </div>
     </div>
 </template>
 
@@ -509,12 +511,7 @@
             changeSlice(planeName, x, y) {
                 if (planeName != this.plane.name) {
                     if (this.plane.name == 'sagittal') {
-                        if (planeName == 'coronal') {
-                            this.slice_number = this.plane.x - x - 1
-                        }
-                        else {
-                            this.slice_number = x
-                        }
+                        this.slice_number = x
                     }
                     else if (this.plane.name == 'coronal' && planeName == 'sagittal') {
                         this.slice_number = this.plane.x - x - 1
@@ -555,12 +552,7 @@
                 if (planeName == this.plane.name) return
                 let sliceNumInt = parseInt(sliceNum)
                 if (planeName == 'sagittal') {
-                    if (this.plane.name == "coronal") {
-                        this.plane_line_x = this.plane.x - sliceNumInt - 1
-                    }
-                    else {
-                        this.plane_line_x = sliceNumInt
-                    }
+                    this.plane_line_x = sliceNumInt
                 }
                 else if (planeName == 'coronal' && this.plane.name == 'sagittal') {
                     this.plane_line_x = this.plane.x - sliceNumInt - 1
