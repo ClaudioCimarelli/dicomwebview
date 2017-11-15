@@ -36,28 +36,33 @@
 <template id="slice-templ">
     <div :id="plane.name" class="slice-box">
 
-        <div class="canvas-box" :style="{ width: plane.x + 'px', height: this.plane.y/this.plane.ratio + 'px'}">
+        <div class="canvas-box" :style="{ width: plane.x + 'px', height: plane.y/plane.ratio + 'px'}"
+               >
             <canvas :id="plane.name + '-image'"
-                    style="position: absolute; left: 0; top: 0; z-index: 0;"
+                    :style="{position: 'absolute', top: top + 'px', left: left + 'px'}"
                     :height="scaled_height + 'px'"
                     :width="scaled_width + 'px'">
             </canvas>
             <canvas :id="'display-segm-'+plane.name"
-                    style="position: absolute; left: 0; top: 0; z-index: 0;"
+                    :style="{position: 'absolute', top: top + 'px', left: left + 'px'}"
                     :height="scaled_height + 'px'"
                     :width="scaled_width + 'px'">
             </canvas>
             <canvas :id="plane.name + '-planeLines'"
-                    style="position: absolute; left: 0; top: 0; z-index: 0;"
+                    :style="{position: 'absolute', top: top + 'px', left: left + 'px'}"
                     :height="scaled_height + 'px'"
                     :width="scaled_width + 'px'"
                     @mousemove="get_coordinates"
-                    @mousedown="switchingslice = true"
-                    @mouseup="switchingslice = false"
+                    @mousedown.left.exact="switchingslice = true"
+                    @mousedown.left.ctrl.exact="panning = true"
+                    @mouseup="switchingslice = false; panning = false"
+                    @click.exact="getSlice"
+                    @wheel.prevent="zoomFunc"
                     v-show="!draw_enabled">
             </canvas>
             <component is="segmentation"
                        v-for="z in 5" :key="z"
+                       :style="{position: 'absolute', top: top + 'px', left: left + 'px'}"
                        :plane-name="plane.name"
                        :plane-x="plane.x" :plane-y="plane.y"
                        :scaled-height="scaled_height" :scaled-width="scaled_width"
@@ -86,7 +91,6 @@
 
 <template id="segmentation-template">
     <canvas v-show="display && drawEnabled" :id="planeName + '-segmentation'+z"
-            style="position: absolute; left: 0; top: 0;"
             :z-index="z"
             @mousemove="get_coordinates"
             @mousedown="startDraw"
@@ -447,7 +451,6 @@
                 'canvas': null,
                 'display_canv': null,
                 'ctx': null,
-                'scaled_width': this.plane.x,
                 'draw_enabled': false,
                 'cursor': {
                     'x': 0,
@@ -456,15 +459,24 @@
                 'planelines_canv': null,
                 'plane_line_x': 0,
                 'plane_line_y': 0,
-                'switchingslice': false
+                'switchingslice': false,
+                'panning': false,
+                'zoom': 1,
+                'left': 0,
+                'top': 0,
+                'clickCoord':{
+                    'x':0,
+                    'y':0
+                }
+
             }
         },
         components: {
             'segmentation': segmentation_component
         },
         computed: {
-            zoom() {
-                return this.scaled_width / this.plane.x
+            scaled_width(){
+                return this.plane.x * this.zoom
             },
             scaled_height() {
                 return Math.floor(this.plane.y/this.plane.ratio * this.zoom)
@@ -493,6 +505,15 @@
                     self.draw_enabled = false
             })
 
+            slicesBus.$on('zooming',  function(zoomLevel){
+                self.zoom = zoomLevel
+            })
+
+            slicesBus.$on('panning', function(top, left){
+                self.top = top
+                self.left = left
+            })
+
             this.slice_number = Math.floor(this.plane.z / 2)
         },
         updated() {
@@ -506,6 +527,9 @@
                 }
                 if(this.switchingslice){
                     this.getSlice()
+                }
+                if(this.panning){
+                    this.center()
                 }
             },
             getSlice() {
@@ -590,6 +614,20 @@
                 context.moveTo(x, y)
                 context.lineTo(xTo, yTo)
                 context.stroke()
+            },
+            zoomFunc(event){
+                let zoomLevel = Math.max(-1, Math.min(1, event.wheelDelta))
+                this.zoom = Math.max(1, Math.min(3, this.zoom+zoomLevel/2))
+                slicesBus.$emit('zooming', this.zoom)
+            },
+            center(){
+                if(this.panning){
+                    this.left += this.cursor.x - this.clickCoord.x
+                    this.top += this.cursor.y - this.clickCoord.y
+                    this.left = Math.min(0, Math.max(this.left, this.plane.x - this.scaled_width))
+                    this.top = Math.min(0, Math.max(this.top, this.plane.y/this.plane.ratio - this.scaled_height))
+                    slicesBus.$emit('panning', this.top, this.left)
+                }
             }
         },
         watch: {
@@ -617,6 +655,14 @@
                 if(this.draw_enabled){
                     slicesBus.$emit('drawEnabled', this.plane.name)
                 }
+            },
+            panning(){
+                this.clickCoord.x = this.cursor.x
+                this.clickCoord.y = this.cursor.y
+            },
+            zoom(){
+                this.top = 0
+                this.left = 0
             }
         }
     }
