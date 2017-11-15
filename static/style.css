@@ -1,7 +1,19 @@
 #slices {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
+    overflow: hidden;
+}
+
+/**/
+
+div#coronal.slice-box{
+  float: left;
+}
+
+div#sagittal.slice-box{
+    float:left
+}
+div#axial.slice-box {
+    clear:both;
+    float: left;
 }
 
 .slice-box{
@@ -14,4 +26,5 @@
     float: left;
     overflow:hidden;
     background-color: gray;
+    position: relative;
 }
