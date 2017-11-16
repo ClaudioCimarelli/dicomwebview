@@ -11,10 +11,15 @@ in python version < 3.4  install enum:
         conda install enum34
 
 # Run
+   take DICOM from folder DICOM_test:
+   
+        python dicomwebview.py 
+        
+   or from your path:
 
-        python dicomwebview.py -i ~/projects/io3d/sample_data/jatra_5mm/
+        python dicomwebview.py -i <path/to/DICOM/images>
 
-#Features
+# Features
 
 - view DICOM images projected in 3 planes: axial, coronal, sagittal
 
@@ -24,7 +29,7 @@ in python version < 3.4  install enum:
 
 - save and load from server all labeling images
 
-#Command list
+# Command list
 
 
 Draw disabled:
