@@ -59,6 +59,7 @@
             <canvas :id="'display-segm-'+plane.name"
                     :style="{position: 'absolute', top: top + 'px', left: left + 'px'}"
                     :height="scaled_height + 'px'"
+                    z-index="0"
                     :width="scaled_width + 'px'">
             </canvas>
             <canvas :id="plane.name + '-planeLines'"
@@ -253,8 +254,7 @@
             let self = this
             segmentationBus.$on('scaling', function (planeName, image) {
                 if (self.display && self.planeName == planeName) {
-                    let ctx = self.displayCanvas.getContext("2d")
-                    ctx.drawImage(image, 0, 0, self.scaledWidth, self.scaledHeight)
+                    mergeImages(self.displayCanvas, image)
                 }
             })
 
@@ -283,23 +283,14 @@
                 if (this.colorPicked) {
                     this.segm_ctx.fill()
                     if(this.color != 'rgba(255, 255, 255, 1)'){
-                        let image = cloneCanvas(this.segm_canv)
-                        this.segm_ctx.clearRect(0, 0, this.segm_canv.width, this.segm_canv.height)
-                        this.segm_ctx.globalAlpha = 1
-                        this.segm_ctx.drawImage(this.tempCanv, 0, 0, this.segm_canv.width, this.segm_canv.height)
-                        this.segm_ctx.drawImage(image, 0, 0, this.segm_canv.width, this.segm_canv.height)
-                        image = cloneCanvas(this.segm_canv)
-                        this.segm_ctx.globalAlpha = 0.7
-                        this.segm_ctx.clearRect(0, 0, this.segm_canv.width, this.segm_canv.height)
-                        this.segm_ctx.drawImage(image, 0, 0, this.segm_canv.width, this.segm_canv.height)
-                        this.segm_ctx.globalAlpha = 1
+                        mergeImages(this.segm_canv, this.tempCanv)
                     }
                     this.drawing = false
                 }
             },
             postSegmImage(planeName, image){
                 if(planeName != this.planeName) return
-                this.segm_ctx.drawImage(image, 0, 0, this.segm_canv.width, this.segm_canv.height)
+                mergeImages(this.segm_canv, image)
                 this.savedImages++
                 if(this.savedImages==4){
                     let dataUrl = ""
@@ -414,6 +405,21 @@
                 segmentationBus.$emit('drawNotSaved', this.planeName, this.drawNotSaved)
             }
         }
+    }
+
+    function mergeImages(sourceCanvas, destCanvas){
+        let image = cloneCanvas(sourceCanvas)
+        let ctx  = sourceCanvas.getContext('2d')
+        ctx.globalCompositeOperation="source-over"
+        ctx.clearRect(0, 0, sourceCanvas.width, sourceCanvas.height)
+        ctx.globalAlpha = 1
+        ctx.drawImage(destCanvas, 0, 0, sourceCanvas.width, sourceCanvas.height)
+        ctx.drawImage(image, 0, 0, sourceCanvas.width, sourceCanvas.height)
+        image = cloneCanvas(sourceCanvas)
+        ctx.clearRect(0, 0, sourceCanvas.width, sourceCanvas.height)
+        ctx.globalAlpha = 0.7
+        ctx.drawImage(image, 0, 0, sourceCanvas.width, sourceCanvas.height)
+        ctx.globalAlpha = 1
     }
 
     function cloneCanvas(oldCanvas) {
