@@ -6,13 +6,15 @@
     <link rel="stylesheet" href='{{ url_for('static',filename='style.css') }}'>
     <script src="{{ url_for('static', filename='vue.js') }}"></script>
     <script src="{{ url_for('static', filename='jquery-3.2.1.js') }}"></script>
+    <script src="{{ url_for('static', filename='vue-spinner.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/lodash@4.13.1/lodash.min.js"></script>
 </head>
 <body>
 
 
 <div id="app">
-    <component is="slices" :planes="planes"></component>
+    <pulse-loader :loading="!loaded"></pulse-loader>
+    <component v-if="loaded" is="slices" :planes="planes"></component>
 </div>
 
 
@@ -53,11 +55,12 @@
                     :height="scaled_height + 'px'"
                     :width="scaled_width + 'px'"
                     @mousemove="get_coordinates"
-                    @mousedown.left.exact="switchingslice = true"
-                    @mousedown.left.ctrl.exact="panning = true"
+                    @mousedown.exact="switchingslice = true"
+                    @mousedown.ctrl.exact="panning = true"
                     @mouseup="switchingslice = false; panning = false"
+                    @mouseleave="switchingslice = false; panning = false"
                     @click.exact="getSlice"
-                    @wheel.prevent="zoomFunc"
+                    @wheel.prevent="wheelRotate"
                     v-show="!draw_enabled">
             </canvas>
             <component is="segmentation"
@@ -94,7 +97,8 @@
             :z-index="z"
             @mousemove="get_coordinates"
             @mousedown="startDraw"
-            @mouseup="endDraw">
+            @mouseup="endDraw"
+            @mouseleave="endDraw">
     </canvas>
 </template>
 
@@ -116,6 +120,7 @@
 
 <script>
 
+    var PulseLoader = VueSpinner.PulseLoader
 
     var color_component = {
         template: '#color-template',
@@ -509,9 +514,17 @@
                 self.zoom = zoomLevel
             })
 
-            slicesBus.$on('panning', function(top, left){
-                self.top = top
-                self.left = left
+            slicesBus.$on('panning', function(planeName, left, top){
+                if(self.plane.name==planeName) return
+                if((self.plane.name=='axial' && planeName=='sagittal') || (planeName=='axial' && self.plane.name=='sagittal') ){
+                   self.top = Math.min(0, Math.max(left, self.plane.y/self.plane.ratio - self.scaled_height))
+                }
+                else if((self.plane.name=='coronal' && planeName=='sagittal') || (planeName=='coronal' && self.plane.name=='sagittal') ){
+                    self.top = Math.min(0, Math.max(top, self.plane.y/self.plane.ratio - self.scaled_height))
+                }
+                else{
+                    self.left = Math.min(0, Math.max(left, self.plane.x - self.scaled_width))
+                }
             })
 
             this.slice_number = Math.floor(this.plane.z / 2)
@@ -606,7 +619,7 @@
                 context.lineTo(xTo, yTo)
                 context.stroke()
 
-                y = this.plane_line_y/ this.plane.ratio * this.zoom
+                y = this.plane_line_y/this.plane.ratio * this.zoom
                 yTo = y
                 x = 0
                 xTo = this.scaled_width
@@ -615,19 +628,23 @@
                 context.lineTo(xTo, yTo)
                 context.stroke()
             },
-            zoomFunc(event){
+            wheelRotate(event){
                 let zoomLevel = Math.max(-1, Math.min(1, event.wheelDelta))
                 this.zoom = Math.max(1, Math.min(3, this.zoom+zoomLevel/2))
                 slicesBus.$emit('zooming', this.zoom)
+{#                #}
             },
             center(){
                 if(this.panning){
                     this.left += this.cursor.x - this.clickCoord.x
                     this.top += this.cursor.y - this.clickCoord.y
-                    this.left = Math.min(0, Math.max(this.left, this.plane.x - this.scaled_width))
-                    this.top = Math.min(0, Math.max(this.top, this.plane.y/this.plane.ratio - this.scaled_height))
-                    slicesBus.$emit('panning', this.top, this.left)
+                    slicesBus.$emit('panning', this.plane.name, this.left, this.top)
+                    this.pan(this.left, this.top)
                 }
+            },
+            pan(x, y){
+                this.left = Math.min(0, Math.max(x, this.plane.x - this.scaled_width))
+                this.top = Math.min(0, Math.max(y, this.plane.y/this.plane.ratio - this.scaled_height))
             }
         },
         watch: {
@@ -661,8 +678,7 @@
                 this.clickCoord.y = this.cursor.y
             },
             zoom(){
-                this.top = 0
-                this.left = 0
+                this.pan(this.plane.x/2 - this.plane_line_x * this.zoom, this.plane.y/2 - (this.plane_line_y/this.plane.ratio * this.zoom))
             }
         }
     }
@@ -726,10 +742,55 @@
                     y: {{ session['dimension'][2]}},
                     ratio: {{ session['ratios'][0] }}
                 }
-            ]
+            ],
+            'loaded': true,
+            'count': 0,
+            'cachePart': 2
         },
         components: {
-            'slices': slices_component
+            'slices': slices_component,
+            'pulse-loader': PulseLoader
+        },
+        mounted(){
+            if(!this.loaded){
+                this.loadAllSlices()
+            }
+        },
+        methods:{
+            loadAllSlices(){
+                let self = this
+                for(let planeId in this.planes){
+                    let plane = this.planes[planeId]
+                    for (let slice = 0; slice <= plane.z; slice++){
+                        if(slice % this.cachePart == 0)
+                            fetch(`api/0/stored_dicom/get_slice/${plane.name}/${slice}`)
+                            .then((res) => {
+                            if (!res.ok) {
+                                console.warn(res)
+                                return
+                            }
+                            return res.blob();
+                            })
+                            .then(function (myBlob) {
+                                self.count++
+                            })
+                            .catch((err) => {
+                                console.warn(err)
+                            })
+                    }
+                }
+            }
+        },
+        watch:{
+            count(){
+                let totSlices = 0
+                for(var i in this.planes){
+                    let plane = this.planes[i]
+                    totSlices += (plane.z+1 - ((plane.z+1)%this.cachePart))/this.cachePart
+                }
+                this.loaded = this.count>= totSlices
+            }
+
         }
     })
 
