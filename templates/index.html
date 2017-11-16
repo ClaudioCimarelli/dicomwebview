@@ -13,7 +13,7 @@
 
 
 <div id="app">
-    <pulse-loader :loading="!loaded"></pulse-loader>
+    <pulse-loader v-if= "!loaded" :loading="!loaded"></pulse-loader>
     <component v-if="loaded" is="slices" :planes="planes"></component>
 </div>
 
@@ -35,9 +35,11 @@
 <template id="slice-templ">
     <div :id="plane.name" class="slice-box">
         <div v-if="plane.name!='axial'" class="slice-box">
-            <label for="enableDrawing-checkbox">drawing is enabled: ${draw_enabled}</label>
-            <input type="checkbox" :id="plane.name+'-enableDrawing'"
+            <div>
+                <label for="enableDrawing-checkbox">Drawing mode is enabled: ${draw_enabled}</label>
+                <input type="checkbox" :id="plane.name+'-enableDrawing'"
                    v-model="draw_enabled">
+            </div>
             <input :id="plane.name + '-sliceNumberSlider'" type="range" v-model="slice_number"
                    min="0"
                    :max="plane.z"/>
@@ -85,9 +87,11 @@
             <input :id="plane.name + '-sliceNumberSlider'" type="range" v-model="slice_number"
                    min="0"
                    :max="plane.z"/>
-            <input type="checkbox" :id="plane.name+'-enableDrawing'"
+            <div>
+                <label for="enableDrawing-checkbox">Drawing mode is enabled: ${draw_enabled}</label>
+                <input type="checkbox" :id="plane.name+'-enableDrawing'"
                    v-model="draw_enabled">
-            <label for="enableDrawing-checkbox">drawing is enabled: ${draw_enabled}</label>
+            </div>
         </div>
     </div>
 </template>
@@ -329,7 +333,7 @@
             fetchSegmImage() {
                 if(this.z!=1) return
                 let self = this
-                fetch(`api/0/stored_dicom/get_segm_image/${this.planeName}/${this.sliceNumber}`)
+                fetch(`api/0/stored_dicom/get_segm_image/${this.planeName}/${this.sliceNumber}?`+encodeURI(new Date().getTime()))
                     .then((res) => {
                         if (!res.ok) {
                             console.warn(res)
@@ -687,6 +691,7 @@
                 this.color = color
             },
             saveSegmentation(){
+                slicesBus.$emit('drawEnabled', "")
                 let self = this
                 $.post('/api/0/segmentation/saveToDisk', {},
                     function (data, status) {
@@ -730,7 +735,7 @@
             ],
             'loaded': false,
             'count': 0,
-            'cachePart': 5
+            'cachePart': 3
         },
         components: {
             'slices': slices_component,

@@ -152,7 +152,7 @@ def create_image_slice(plane, slice_n):
     image_pixel *= 255
 
     # Writing the PNG file
-    if plane == 1:
+    if plane == 0 or plane == 1:
         image_pixel[...] = np.fliplr(image_pixel)
     png.from_array(image_pixel, 'L', info={'bitdepth': 8}).save(png_file)
     png_file.seek(0)
@@ -193,6 +193,8 @@ if __name__ == '__main__':
 
                 plane_n = Planes[filename.split('-')[0].upper()].value
                 # maintaining the same order of the DICOM images, from upper body to lower in the array
+                # todo: fix when loading transparent pixel from subsequent planes
+                # todo: deletes colored one loaded from previous planes
                 ind = [slice(None)] * 4
                 ind[plane_n] = slice_n
                 segm_images[tuple(ind)] = pixel_array
