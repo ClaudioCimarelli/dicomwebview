@@ -41,10 +41,14 @@
             <input :id="plane.name + '-sliceNumberSlider'" type="range" v-model="slice_number"
                    min="0"
                    :max="plane.z"/>
-            <span>slice number:<input :id="plane.name + '-sliceNumberInput'" type="number" v-model="slice_number"/></span>
+            <span><b>${plane.name}</b> slice number:<input :id="plane.name + '-sliceNumberInput'" type="number" v-model="slice_number"/></span>
         </div>
         <div class="canvas-box" :style="{ width: plane.x + 'px', height: plane.y/plane.ratio + 'px'}"
-               >
+                @mousedown.ctrl.exact="panning = true"
+                @wheel.prevent="wheelRotate"
+                @mousemove="get_coordinates"
+                @mouseup="switchingslice = false; panning = false"
+                @mouseleave="switchingslice = false; panning = false">
             <canvas :id="plane.name + '-image'"
                     :style="{position: 'absolute', top: top + 'px', left: left + 'px'}"
                     :height="scaled_height + 'px'"
@@ -59,14 +63,9 @@
                     :style="{position: 'absolute', top: top + 'px', left: left + 'px'}"
                     :height="scaled_height + 'px'"
                     :width="scaled_width + 'px'"
-                    @mousemove="get_coordinates"
-                    @mousedown.exact="switchingslice = true"
-                    @mousedown.ctrl.exact="panning = true"
-                    @mouseup="switchingslice = false; panning = false"
-                    @mouseleave="switchingslice = false; panning = false"
+                    v-show="!draw_enabled"
                     @click.exact="getSlice"
-                    @wheel.prevent="wheelRotate"
-                    v-show="!draw_enabled">
+                    @mousedown.exact="switchingslice = true">
             </canvas>
             <component is="segmentation"
                        v-for="z in 5" :key="z"
@@ -77,11 +76,12 @@
                        :zoom="zoom" :z="z"
                        :display-canvas="display_canv"
                        :color="color" :draw-enabled="draw_enabled"
-                       :slice-number="slice_number">
+                       :slice-number="slice_number"
+                       :cursor="cursor">
             </component>
         </div>
         <div v-if="plane.name=='axial'" class="slice-box">
-            <span>slice number:<input :id="plane.name + '-sliceNumberInput'" type="number" v-model="slice_number"/></span>
+            <span><b>${plane.name}</b> slice number:<input :id="plane.name + '-sliceNumberInput'" type="number" v-model="slice_number"/></span>
             <input :id="plane.name + '-sliceNumberSlider'" type="range" v-model="slice_number"
                    min="0"
                    :max="plane.z"/>
@@ -95,9 +95,9 @@
 <template id="segmentation-template">
     <canvas v-show="display && drawEnabled" :id="planeName + '-segmentation'+z"
             :z-index="z"
-            @mousemove="get_coordinates"
-            @mousedown="startDraw"
-            @mouseup="endDraw">
+            @mousedown.exact="startDraw"
+            @mouseup="endDraw"
+            @mouseleave="">
     </canvas>
 </template>
 
@@ -208,15 +208,11 @@
         template: '#segmentation-template',
         delimiters: ['${', '}'],
         props: ['displayCanvas', 'drawEnabled', 'planeName', 'planeX', 'planeY', 'scaledWidth', 'scaledHeight',
-            'sliceNumber', 'zoom', 'z', 'color'],
+            'sliceNumber', 'zoom', 'z', 'color', 'cursor'],
         data() {
             return {
                 'segm_canv': null,
                 'segm_ctx': null,
-                'cursor': {
-                    x: 0,
-                    y: 0
-                },
                 'drawing': false,
                 'savedImages': 0,
                 'prevSliceNumber': this.sliceNumber,
@@ -270,14 +266,6 @@
         beforeUpdate(){
         },
         methods: {
-            get_coordinates(event) {
-                {#let rect = this.canvas.getBoundingClientRect();
-                console.log("x: %d, y: %d", event.clientX- rect.left, event.clientY- rect.top)#}
-                this.cursor = {
-                    x: event.layerX,
-                    y: event.layerY
-                }
-            },
             startDraw() {
                 if (this.colorPicked) {
                     this.tempCanv = cloneCanvas(this.segm_canv)
@@ -631,7 +619,6 @@
                 let zoomLevel = Math.max(-1, Math.min(1, event.wheelDelta))
                 this.zoom = Math.max(1, Math.min(3, this.zoom+zoomLevel/2))
                 slicesBus.$emit('zooming', this.zoom)
-{#                #}
             },
             center(){
                 if(this.panning){
