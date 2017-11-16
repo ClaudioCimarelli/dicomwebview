@@ -11,12 +11,10 @@
 </head>
 <body>
 
-
 <div id="app">
     <pulse-loader v-if= "!loaded" :loading="!loaded"></pulse-loader>
     <component v-if="loaded" is="slices" :planes="planes"></component>
 </div>
-
 
 <template id="slices-templ">
     <div>
@@ -40,15 +38,14 @@
                 <input type="checkbox" :id="plane.name+'-enableDrawing'"
                    v-model="draw_enabled">
             </div>
-            <div>
                 <span>
                     <b>${plane.name}</b> slice number:
                     <input :id="plane.name + '-sliceNumberInput'" type="number" v-model="slice_number"
-                    min="0" :max="plane.z" pattern='[0-9]{1,3}'/>
+                    min="0" :max="plane.z" pattern='[0-9]{1,3}'
+                    maxlength="3" size="3" style="width: 50px;"/>
                     <input :id="plane.name + '-sliceNumberSlider'" type="range" v-model="slice_number"
                    min="0" :max="plane.z"/>
                 </span>
-            </div>
 
         </div>
         <div class="canvas-box" :style="{ width: plane.x + 'px', height: plane.y/plane.ratio + 'px'}"
@@ -94,7 +91,8 @@
                 <span>
                     <b>${plane.name}</b> slice number:
                     <input :id="plane.name + '-sliceNumberInput'" type="number" v-model="slice_number"
-                    min="0" :max="plane.z" pattern='[0-9]{1,3}'/>
+                    min="0" :max="plane.z" pattern='[0-9]{1,3}'
+                    maxlength="3" size="3" style="width: 50px;"/>
                     <input :id="plane.name + '-sliceNumberSlider'" type="range" v-model="slice_number"
                    min="0" :max="plane.z"/>
                 </span>
@@ -258,7 +256,6 @@
 
             this.segm_ctx = this.segm_canv.getContext("2d")
             this.segm_ctx.imageSmoothingEnabled = false
-            this.segm_ctx.mozImageSmoothingEnabled = false
             this.segm_ctx.webkitImageSmoothingEnabled = false
             this.segm_ctx.msImageSmoothingEnabled = false
 
@@ -277,8 +274,6 @@
                 if(self.planeName == planeName)
                     self.drawNotSaved = saved
             })
-        },
-        beforeUpdate(){
         },
         methods: {
             startDraw() {
@@ -503,7 +498,6 @@
             this.display_canv.style.imageRendering = 'pixelated'
             let ctx = this.display_canv.getContext("2d")
             ctx.imageSmoothingEnabled = false
-            ctx.mozImageSmoothingEnabled = false
             ctx.webkitImageSmoothingEnabled = false
             ctx.msImageSmoothingEnabled = false
 
@@ -542,6 +536,10 @@
         },
         methods: {
             get_coordinates(event) {
+            {#
+            TODO: fix cursor coordinates when zoom browser window - working only on Firefox
+             var browserZoomLevel = Math.round(window.devicePixelRatio * 100);
+             #}
                 this.cursor = {
                     x: event.layerX,
                     y: event.layerY
@@ -637,7 +635,7 @@
                 context.stroke()
             },
             wheelRotate(event){
-                let zoomLevel = Math.max(-1, Math.min(1, event.wheelDelta))
+                let zoomLevel = Math.max(-1, Math.min(1, event.wheelDelta || -event.deltaY))
                 this.zoom = Math.max(1, Math.min(3, this.zoom+zoomLevel/2))
                 slicesBus.$emit('zooming', this.zoom)
             },
@@ -750,7 +748,7 @@
                     ratio: {{ session['ratios'][0] }}
                 }
             ],
-            'loaded': false,
+            'loaded': true,
             'count': 0,
             'cachePart': 3
         },
