@@ -21,15 +21,12 @@
 <template id="slices-templ">
     <div>
         <div>
-            <input id="canvas_box_size-slider'" type="range" v-model="canvas_box_size"
-                   min="300"
-                   max="1200"/>
             <button id="saveSegmentation" @click="saveSegmentation"> Save Segmentation Permanently </button>
             <component is="colorSelector" @colorchange="changeColor"></component>
         </div>
         <div id="slices">
             <component is="slice" v-for="plane in planes" :key="plane.id" :plane="plane"
-                       :canvas_box_size="canvas_box_size" :color="color">
+                       :color="color">
             </component>
         </div>
     </div>
@@ -37,7 +34,15 @@
 
 <template id="slice-templ">
     <div :id="plane.name" class="slice-box">
-
+        <div v-if="plane.name!='axial'" class="slice-box">
+            <label for="enableDrawing-checkbox">drawing is enabled: ${draw_enabled}</label>
+            <input type="checkbox" :id="plane.name+'-enableDrawing'"
+                   v-model="draw_enabled">
+            <input :id="plane.name + '-sliceNumberSlider'" type="range" v-model="slice_number"
+                   min="0"
+                   :max="plane.z"/>
+            <span>slice number:<input :id="plane.name + '-sliceNumberInput'" type="number" v-model="slice_number"/></span>
+        </div>
         <div class="canvas-box" :style="{ width: plane.x + 'px', height: plane.y/plane.ratio + 'px'}"
                >
             <canvas :id="plane.name + '-image'"
@@ -75,16 +80,11 @@
                        :slice-number="slice_number">
             </component>
         </div>
-        <div v-show="false" class="slice-box">
+        <div v-if="plane.name=='axial'" class="slice-box">
             <span>slice number:<input :id="plane.name + '-sliceNumberInput'" type="number" v-model="slice_number"/></span>
             <input :id="plane.name + '-sliceNumberSlider'" type="range" v-model="slice_number"
                    min="0"
                    :max="plane.z"/>
-            <span>zoom: ${zoom}</span>
-            <input :id="plane.name+'-zoomSlider'" type="range" v-model="scaled_width"
-                   :min="plane.x"
-                   :max="plane.x*3"
-                   :step="plane.x/2"/>
             <input type="checkbox" :id="plane.name+'-enableDrawing'"
                    v-model="draw_enabled">
             <label for="enableDrawing-checkbox">drawing is enabled: ${draw_enabled}</label>
@@ -97,8 +97,7 @@
             :z-index="z"
             @mousemove="get_coordinates"
             @mousedown="startDraw"
-            @mouseup="endDraw"
-            @mouseleave="endDraw">
+            @mouseup="endDraw">
     </canvas>
 </template>
 
@@ -447,7 +446,7 @@
     var slice_component = {
         template: '#slice-templ',
         delimiters: ['${', '}'],
-        props: ['plane', 'canvas_box_size', 'color'],
+        props: ['plane', 'color'],
         data() {
             return {
                 'slice_number': 0,
@@ -693,7 +692,6 @@
         },
         data() {
             return {
-                'canvas_box_size': 512,
                 'color': ''
             }
         },
