@@ -40,10 +40,16 @@
                 <input type="checkbox" :id="plane.name+'-enableDrawing'"
                    v-model="draw_enabled">
             </div>
-            <input :id="plane.name + '-sliceNumberSlider'" type="range" v-model="slice_number"
-                   min="0"
-                   :max="plane.z"/>
-            <span><b>${plane.name}</b> slice number:<input :id="plane.name + '-sliceNumberInput'" type="number" v-model="slice_number"/></span>
+            <div>
+                <span>
+                    <b>${plane.name}</b> slice number:
+                    <input :id="plane.name + '-sliceNumberInput'" type="number" v-model="slice_number"
+                    min="0" :max="plane.z" pattern='[0-9]{1,3}'/>
+                    <input :id="plane.name + '-sliceNumberSlider'" type="range" v-model="slice_number"
+                   min="0" :max="plane.z"/>
+                </span>
+            </div>
+
         </div>
         <div class="canvas-box" :style="{ width: plane.x + 'px', height: plane.y/plane.ratio + 'px'}"
                 @mousedown.ctrl.exact="panning = true"
@@ -84,10 +90,15 @@
             </component>
         </div>
         <div v-if="plane.name=='axial'" class="slice-box">
-            <span><b>${plane.name}</b> slice number:<input :id="plane.name + '-sliceNumberInput'" type="number" v-model="slice_number"/></span>
-            <input :id="plane.name + '-sliceNumberSlider'" type="range" v-model="slice_number"
-                   min="0"
-                   :max="plane.z"/>
+            <div>
+                <span>
+                    <b>${plane.name}</b> slice number:
+                    <input :id="plane.name + '-sliceNumberInput'" type="number" v-model="slice_number"
+                    min="0" :max="plane.z" pattern='[0-9]{1,3}'/>
+                    <input :id="plane.name + '-sliceNumberSlider'" type="range" v-model="slice_number"
+                   min="0" :max="plane.z"/>
+                </span>
+            </div>
             <div>
                 <label for="enableDrawing-checkbox">Drawing mode is enabled: ${draw_enabled}</label>
                 <input type="checkbox" :id="plane.name+'-enableDrawing'"
