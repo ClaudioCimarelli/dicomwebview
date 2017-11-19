@@ -12,7 +12,7 @@
     - offering API to read DICOM images and label them
     - uses PyPNG and Numpy libraries to work with pixel arrays
     
-+++?code=dicomwebview.py&lang=python&title=API declaration
++++?code=dicomwebview.py&lang=elixir&title=API declaration
 
 @[48](Get a dicom image along one plane )
 
