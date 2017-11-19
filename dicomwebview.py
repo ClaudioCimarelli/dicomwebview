@@ -50,7 +50,6 @@ def get_slice(plane, slice_n):
     plane_n = getattr(Planes, plane.upper())
     if not issubclass(type(plane_n), int):
         plane_n = plane_n.value
-
     image = create_image_slice(plane_n, dims[plane_n] - slice_n - 1)
     return send_file(image,
                      attachment_filename=plane + str(slice_n) + '.png',
