@@ -16,15 +16,16 @@
 
 @[48](Get a dicom image along one plane )
 
-@[60](Get labeling image use for segmentation purposes)
+@[59](Get labeling image use for segmentation purposes)
 
-@[71](Send labeling images to server memory , still not saved permanently)
+@[70](Send labeling images to server memory , still not saved permanently)
 
-@[106](Request to save labeling images on disk)
+@[105](Request to save labeling images on disk)
 
 +++?code=dicomwebview.py&lang=elixir&title=Convert pixel array to PNG
 
 @[140-159]
+
 @[141](Take selected slice using plane dimension and slice number given)
 @[156](Trasform ndarray of pixel data into PNG image using PyPNG)
 
@@ -37,7 +38,7 @@
 - Canvas representation of PNGs
     - so that is possible to use Javascript code to interact with images  
 
-+++?code=index.html&lang=javascript&title=Vue components
++++?code=templates/index.html&lang=javascript&title=Vue components
 
 @[720](Root della applicazione contenente dati della sessione utente)
 
