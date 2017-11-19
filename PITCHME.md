@@ -24,6 +24,8 @@
 
 @[70-71](API: Post labeling images to server memory , still not saved permanently)
 @[77-79](Decode PNG from Base64 string to binary readable by PyPNG)
+@[86-87](create ndarry of pixel from binary data iterator)
+@[90, 95](modify opacity to 0.5 for all colored pixels and put it in a 3d-ndarray)
 
 @[105-106](API: Post request to save labeling images on disk)
 
@@ -38,9 +40,11 @@
 
 +++?code=templates/index.html&lang=elixir&title=Vue js application code
 
-@[720, 14-17](Root della applicazione contenente dati della sessione utente)
+@[720](Root della applicazione contenente dati della sessione utente)
+@[14-17](HTML template della root)
 
-@[691, 19-31](Contenitore principale per la visualizzazione del file DICOM)
+@[691](Contenitore principale per la visualizzazione del file DICOM)
+@[19-31](HTML template del contenitore)
 
 @[450](Component that manage a single plane visualization)
 
