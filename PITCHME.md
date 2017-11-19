@@ -14,13 +14,13 @@
     
 +++?code=dicomwebview.py&lang=elixir&title=Server side code snippets
 
-@[48-56](API: Get a dicom image along one plane )
+@[48-56](API: Get a DICOM image along a plane )
 
 @[140](Method to convert a pixel array to PNG)
 @[141](Take selected slice using plane dimension and slice number given)
 @[156](Trasform ndarray of pixel data into PNG image using PyPNG)
 
-@[59-60](API: Get labeling image use for segmentation purposes)
+@[59-67](API: Get labeling image use for segmentation purposes)
 
 @[70-71](API: Post labeling images to server memory , still not saved permanently)
 @[77-79](Decode PNG from Base64 string to binary readable by PyPNG)
@@ -36,11 +36,11 @@
 - Canvas representation of PNGs
     - so that is possible to use Javascript code to interact with images  
 
-+++?code=templates/index.html&lang=elixir&title=Vue components
++++?code=templates/index.html&lang=elixir&title=Vue js application code
 
-@[720](Root della applicazione contenente dati della sessione utente)
+@[720, 14-17](Root della applicazione contenente dati della sessione utente)
 
-@[691](Contenitore principale per la visualizzazione del file DICOM)
+@[691, 19-31](Contenitore principale per la visualizzazione del file DICOM)
 
 @[450](Component that manage a single plane visualization)
 
