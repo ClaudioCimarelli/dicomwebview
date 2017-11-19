@@ -41,16 +41,16 @@
 +++?code=templates/index.html&lang=elixir&title=Vue js application code
 
 @[720](Vuejs app root)
-@[14-17](HTML template)
+@[14-17](HTML template root)
 
 @[691](Container for 3 sub-component, one for different plane)
-@[19-31](HTML template)
+@[19-31](HTML template slices container)
 
 @[450](Component that manage a single plane visualization)
-@[33-107](HTML template)
+@[50-74](HTML template single slice)
 
 @[221](Component to draw on the images. Five of them are overlaid on each plane to allow different zooming level for drawing)
-@[109-116](HTML template)
+@[109-116](HTML template segmentation drawing layer)
 
 @[162](Component for selecting different color to label images)
-@[118-128](HTML template)
+@[118-128](HTML template color selector)

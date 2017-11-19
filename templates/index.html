@@ -46,7 +46,6 @@
                     <input :id="plane.name + '-sliceNumberSlider'" type="range" v-model="slice_number"
                    min="0" :max="plane.z"/>
                 </span>
-
         </div>
         <div class="canvas-box" :style="{ width: plane.x + 'px', height: plane.y/plane.ratio + 'px'}"
                 @mousedown.ctrl.exact="panning = true"
