@@ -1,4 +1,4 @@
-@title[Introduction]
+
 ## DICOM Web Viewer
 
 ##### A Web application to view and label medical images online 
@@ -14,29 +14,21 @@
     
 +++
 
-@title[Server side code]
 #### API declaration
 
-```python
-@app.route('/api/0/stored_dicom/get_slice/<string:plane>/<int:slice_n>', methods=['GET'])
+<br>
 
-@app.route('/api/0/stored_dicom/get_segm_image/<string:plane>/<int:slice_n>', methods=['GET'])
+?code=dicomwebview.py&lang=python
 
-@app.route('/api/0/segmentation/push_segm_image/<string:plane>/<int:slice_n>', methods=['POST'])
+@[48--57](Get a dicom image along one plane )
 
-@app.route('/api/0/segmentation/saveToDisk', methods=['POST'])
+@[60](Get labeling image use for segmentation purposes)
 
-```
-@[1](Get a dicom image along one plane )
+@[71](Send labeling images to server memory, still not saved permanently)
 
-@[2](Get labeling image use for segmentation purposes)
-
-@[3](Send labeling images to server memory, still not saved permanently)
-
-@[4](Request to save labeling images on disk)
+@[106](Request to save labeling images on disk)
 
 ---
-
 ### Client side:
 
 <br>
