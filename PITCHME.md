@@ -1,11 +1,12 @@
 @title[Introduction]
 ## DICOM Web Viewer
 
-#####A Web application to view and label medical images online 
-
+##### A Web application to view and label medical images online 
 
 ---
-Server side:
+### Server side:
+
+<br> 
 
 - Python and Flask web server:
     - offering API to read DICOM images and label them
@@ -14,7 +15,7 @@ Server side:
 +++
 
 @title[Server side code]
-## Server side code
+#### API declaration
 
 ```python
 @app.route('/api/0/stored_dicom/get_slice/<string:plane>/<int:slice_n>', methods=['GET'])
@@ -27,13 +28,18 @@ Server side:
 
 ```
 @[1](Get a dicom image along one plane )
+
 @[2](Get labeling image use for segmentation purposes)
+
 @[3](Send labeling images to server memory, still not saved permanently)
+
 @[4](Request to save labeling images on disk)
 
 ---
 
-Client side:
+### Client side:
+
+<br>
 
 - Vue.js to create the frontend single-page application
     - easy to learn and allows to create modular apps using components
