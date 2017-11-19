@@ -4,7 +4,7 @@
 ##### A Web application to view and label medical images online 
 
 ---
-### Server side:
+### Backend:
 
 <br> 
 
@@ -12,33 +12,31 @@
     - offering API to read DICOM images and label them
     - uses PyPNG and Numpy libraries to work with pixel arrays
     
-+++?code=dicomwebview.py&lang=elixir&title=API declaration
++++?code=dicomwebview.py&lang=elixir&title=Server side code snippets
 
-@[48](Get a dicom image along one plane )
+@[48-56](API: Get a dicom image along one plane )
 
-@[59](Get labeling image use for segmentation purposes)
-
-@[70](Send labeling images to server memory , still not saved permanently)
-
-@[105](Request to save labeling images on disk)
-
-+++?code=dicomwebview.py&lang=elixir&title=Convert pixel array to PNG
-
-@[140-159]
-
+@[140](Method to convert a pixel array to PNG)
 @[141](Take selected slice using plane dimension and slice number given)
 @[156](Trasform ndarray of pixel data into PNG image using PyPNG)
 
+@[59-60](API: Get labeling image use for segmentation purposes)
+
+@[70-71](API: Post labeling images to server memory , still not saved permanently)
+@[77-79](Decode PNG from Base64 string to binary readable by PyPNG)
+
+@[105-106](API: Post request to save labeling images on disk)
+
 ---
-### Client side:
+### Frontend:
 <br>
-- Vue.js to create the frontend single-page application
+- Vue.js to build the single-page application
     - easy to learn and allows to create modular apps using **components**  
 
 - Canvas representation of PNGs
     - so that is possible to use Javascript code to interact with images  
 
-+++?code=templates/index.html&lang=javascript&title=Vue components
++++?code=templates/index.html&lang=elixir&title=Vue components
 
 @[720](Root della applicazione contenente dati della sessione utente)
 
