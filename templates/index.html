@@ -330,7 +330,7 @@
             fetchSegmImage() {
                 if(this.z!=1) return
                 let self = this
-                fetch(`api/0/stored_dicom/get_segm_image/${this.planeName}/${this.sliceNumber}`)
+                fetch(`api/0/stored_dicom/get_segm_image/${this.planeName}/${this.sliceNumber}?`+encodeURI(new Date().getTime()))
                     .then((res) => {
                         if (!res.ok) {
                             console.warn(res)
